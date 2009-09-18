@@ -3,7 +3,7 @@
  * Released under version 2 of the Gnu Public License.
  * By Chris Brady, cbrady@sgi.com
  * ----------------------------------------------------
- * MemTest86+ V1.25 Specific code (GPL V2.0)
+ * MemTest86+ V1.26 Specific code (GPL V2.0)
  * By Samuel DEMEULEMEESTER, sdemeule@memtest.org
  * http://www.x86-secret.com - http://www.memtest.org
  */
@@ -51,7 +51,7 @@ static void display_init(void)
  	for(i=0, pp=(char *)(SCREEN_ADR+1); i<TITLE_WIDTH; i++, pp+=2) {
   	*pp = 0x20;
  	}
- 	cprint(0, 0, "      Memtest86  v1.25      ");
+ 	cprint(0, 0, "      Memtest86  v1.26      ");
 
  	for(i=0, pp=(char *)(SCREEN_ADR+1); i<2; i++, pp+=30) {
 	*pp = 0xA4;
@@ -382,6 +382,14 @@ void cpu_type(void)
 				l1_cache += cpu_id.cache_info[7];
 				l2_cache = (cpu_id.cache_info[11] << 8);
 				l2_cache += cpu_id.cache_info[10];
+				break;
+			case 13: 
+				cprint(LINE_CPU, 0, "AMD K6-III+"); 
+				off = 11; 
+				l1_cache = cpu_id.cache_info[3]; 
+				l1_cache += cpu_id.cache_info[7]; 
+				l2_cache = (cpu_id.cache_info[11] << 8); 
+				l2_cache += cpu_id.cache_info[10]; 
 				break;
 			}
 			break;

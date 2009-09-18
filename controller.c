@@ -3,7 +3,7 @@
  * Released under version 2 of the Gnu Public License.
  * By Chris Brady, cbrady@sgi.com
  * ----------------------------------------------------
- * MemTest86+ V1.25 Specific code (GPL V2.0)
+ * MemTest86+ V1.26 Specific code (GPL V2.0)
  * By Samuel DEMEULEMEESTER, sdemeule@memtest.org
  * http://www.x86-secret.com - http://www.memtest.org
  */
@@ -846,14 +846,13 @@ static void poll_fsb_i925(void) {
 
 	double dramclock, dramratio, fsb;
 	unsigned int msr_lo, msr_hi;
-	unsigned long mchcfg, dev0;
+	unsigned long mchcfg, mchcfg2, dev0;
 	int coef;
 	long *ptr;
 	
 	/* Find multiplier (by MSR) */
 	rdmsr(0x2C, msr_lo, msr_hi);
 	coef = (msr_lo >> 24) & 0x1F;
-	fsb = ((extclock /1000) / coef);
 	
 	/* Find dramratio */
 	pci_conf_read( 0, 0, 0, 0x44, 4, &dev0);
@@ -861,17 +860,17 @@ static void poll_fsb_i925(void) {
 	mchcfg = *ptr & 0xFFFF;
 	dramratio = 1;
 
-	mchcfg = (mchcfg >> 4)&3;
+	mchcfg2 = (mchcfg >> 4)&3;
 	
-	if (mchcfg == 2) { dramratio = 1; } 
-	else if (mchcfg == 1) { dramratio = 0.66667; }
-	else if (mchcfg == 3) { 
+	if (mchcfg2  == 2) { dramratio = 1; } 
+	else if (mchcfg2 == 1) { dramratio = 0.66667; }
+	else if (mchcfg2 == 3) { 
 		// If mchcfg[0] = 1 => FSB533 / = 0 => FSB800
 		if ((mchcfg & 1) == 0) { dramratio = 1.33334; }
 		else { dramratio = 1.5; }
 	}
 
-
+	
 	// Compute RAM Frequency 
 	fsb = ((extclock /1000) / coef);
 	dramclock = fsb * dramratio;
