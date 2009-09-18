@@ -13,7 +13,7 @@
  * so the build process should be more robust.
  */
 #define LOW_TEST_ADR	0x00002000		/* Final adrs for test code */
-#define HIGH_TEST_ADR	0x00100000		/* Relocation base address */
+#define HIGH_TEST_ADR	0x00200000		/* Relocation base address */
 
 #define BOOTSEG		0x07c0			/* Segment adrs for inital boot */
 #define INITSEG		0x9000			/* Segment adrs for relocated boot */

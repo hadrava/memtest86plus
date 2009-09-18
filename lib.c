@@ -9,7 +9,7 @@
 #include "config.h"
 #include "screen_buffer.h"
 
-/* extern struct vars *v; */
+extern int fast_mode;
 
 int slock = 0, lsr = 0;
 short serial_cons = SERIAL_CONSOLE_DEFAULT;
@@ -403,11 +403,13 @@ void set_cache(int val)
 	}
 	switch(val) {
 	case 0:
-		cache_off();	
-		if (v->cache_flag) {
-			cprint(LINE_INFO, COL_CACHE, "OFF");
-		} else {
-			cprint(LINE_INFO, COL_CACHE, "off");
+		if (fast_mode != 1) {
+			cache_off();	
+			if (v->cache_flag) {
+				cprint(LINE_INFO, COL_CACHE, "OFF");
+			} else {
+				cprint(LINE_INFO, COL_CACHE, "off");
+			}
 		}
 		break;
 	case 1:
@@ -456,7 +458,6 @@ void check_input(void)
 
 			/* tell the BIOS to do a warm start */
 			*((unsigned short *)0x472) = 0x1234;
-			cache_on();
 			outb(0xfe,0x64);
 			break;
 		case 46:

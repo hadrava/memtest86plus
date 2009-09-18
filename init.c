@@ -3,7 +3,7 @@
  * Released under version 2 of the Gnu Public License.
  * By Chris Brady, cbrady@sgi.com
  * ----------------------------------------------------
- * MemTest86+ V1.27 Specific code (GPL V2.0)
+ * MemTest86+ V1.30 Specific code (GPL V2.0)
  * By Samuel DEMEULEMEESTER, sdemeule@memtest.org
  * http://www.x86-secret.com - http://www.memtest.org
  */
@@ -52,7 +52,7 @@ static void display_init(void)
  	for(i=0, pp=(char *)(SCREEN_ADR+1); i<TITLE_WIDTH; i++, pp+=2) {
   	*pp = 0x20;
  	}
- 	cprint(0, 0, "      Memtest86  v1.27      ");
+ 	cprint(0, 0, "      Memtest86  v1.30      ");
 
  	for(i=0, pp=(char *)(SCREEN_ADR+1); i<2; i++, pp+=30) {
 	*pp = 0xA4;
@@ -128,7 +128,7 @@ void init(void)
 	cprint(4, COL_MID,"Pattern: ");
 	cprint(LINE_INFO-2, 0, " WallTime   Cached  RsvdMem   MemMap   Cache  ECC  Test  Pass  Errors ECC Errs");
 	cprint(LINE_INFO-1, 0, " ---------  ------  -------  --------  -----  ---  ----  ----  ------ --------");
-	cprint(LINE_INFO, COL_TST, "Std");
+	cprint(LINE_INFO, COL_TST, " Std");
 	cprint(LINE_INFO, COL_PASS, "    0");
 	cprint(LINE_INFO, COL_ERR, "     0");
 	cprint(LINE_INFO+1, 0, " -----------------------------------------------------------------------------");

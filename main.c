@@ -8,6 +8,7 @@
 #undef TEST_TIMES
 
 extern void bzero();
+extern int fast_mode;
 
 const struct tseq tseq[] = {
 	{0, 5, 3, 0, 0,    "[Address test, walking ones, no cache]"},
@@ -415,6 +416,7 @@ void restart()
 
 	/* clear all of the variables */
 	firsttime = 0;
+	fast_mode = 0;
 	for (i=0, pp=(char *)v; i<sizeof(struct vars); i++, pp++) {
 		*pp = 0;
 	}

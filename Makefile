@@ -12,16 +12,16 @@ CC=gcc
 #
 # gcc compiler options, these settings should suffice
 #
-CCFLAGS=-Wall -march=i486 -Os -fomit-frame-pointer -fno-builtin -ffreestanding
+CCFLAGS=-Wall -m32 -march=i486 -Os -fomit-frame-pointer -fno-builtin -ffreestanding
 
-AS=as
+AS=as -32
 
-OBJS= head.o reloc.o main.o test.o init.o lib.o patn.o screen_buffer.o config.o linuxbios.o memsize.o pci.o controller.o
+OBJS= head.o reloc.o main.o test.o init.o lib.o patn.o screen_buffer.o config.o linuxbios.o memsize.o pci.o controller.o extra.o
 
 all: memtest.bin memtest
 
 reloc.o: reloc.c
-	$(CC) -c -march=i486 -fPIC -Wall -g -O2 -fno-strict-aliasing reloc.c
+	$(CC) -c -m32 -march=i486 -fPIC -Wall -g -O2 -fno-strict-aliasing reloc.c
 
 test.o: test.c test.h defs.h config.h
 	$(CC) -c $(CCFLAGS) test.c
@@ -56,17 +56,21 @@ pci.o: pci.c pci.h io.h
 controller.o: controller.c defs.h config.h test.h pci.h controller.h
 	$(CC) -c $(CCFLAGS) -fPIC controller.c
 
+extra.o: config.c test.h screen_buffer.h extra.h
+	$(CC) -c $(CCFLAGS) -fPIC extra.c
+
 controller.s: controller.c defs.h config.h test.h pci.h controller.h
 	$(CC) -S $(CCFLAGS) -fPIC controller.c
 
 head.s: head.S
-	$(CC) -E -traditional $< -o $@
+	$(CC) -E -m32 -traditional $< -o $@
 
 head.o: head.s
 	$(AS) -o $@ $<
 
 makedefs: makedefs.c defs.h
-	 $(CC) $(CCFLAGS) makedefs.c -o $@
+	$(CC) $(CCFLAGS) makedefs.c -o $@
+
 
 # Link it statically once so I know I don't have undefined
 # symbols and then link it dynamically so I have full

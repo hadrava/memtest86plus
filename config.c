@@ -3,7 +3,7 @@
  * Released under version 2 of the Gnu Public License.
  * By Chris Brady, cbrady@sgi.com
  * ----------------------------------------------------
- * MemTest86+ V1.15 Specific code (GPL V2.0)
+ * MemTest86+ V1.30 Specific code (GPL V2.0)
  * By Samuel DEMEULEMEESTER, sdemeule@memtest.org
  * http://www.x86-secret.com - http://www.memtest.org
  */
@@ -11,6 +11,7 @@
 #include "test.h"
 #include "screen_buffer.h"
 #include "controller.h"
+#include "extra.h"
 #define ITER 20
 
 extern int bail, beepmode;
@@ -18,6 +19,8 @@ extern struct tseq tseq[];
 /* extern struct vars *v; */
 extern short e820_nr;
 extern char memsz_mode;
+
+int fast_mode;
 
 char save[POP_H][POP_W];
 
@@ -39,7 +42,7 @@ void get_config()
 		cprint(POP_Y+8,  POP_X+6, "(6) Error Report Mode");
 		cprint(POP_Y+9,  POP_X+6, "(7) ECC Mode"); 
 		cprint(POP_Y+10, POP_X+6, "(8) Restart Test");
-		cprint(POP_Y+11, POP_X+6, "(9) Reprint Screen");
+		cprint(POP_Y+11, POP_X+6, "(9) Adv. Options");
 		cprint(POP_Y+12, POP_X+6, "(0) Exit");
 
 		/* Wait for key release */
@@ -97,16 +100,25 @@ void get_config()
 			popclear();
 			cprint(POP_Y+1, POP_X+2, "Test Selection:");
 			cprint(POP_Y+3, POP_X+6, "(1) Default Tests");
-			cprint(POP_Y+4, POP_X+6, "(2) Extended Tests");
-			cprint(POP_Y+5, POP_X+6, "(3) All Tests");
-			cprint(POP_Y+6, POP_X+6, "(4) Skip Current Test");
-			cprint(POP_Y+7, POP_X+6, "(5) Select Test");
-			cprint(POP_Y+8, POP_X+6, "(6) Print mode");
-			cprint(POP_Y+9, POP_X+6, "(0) Cancel");
+			cprint(POP_Y+4, POP_X+6, "(2) Quick Tests");
+			cprint(POP_Y+5, POP_X+6, "(3) Extended Tests");
+			cprint(POP_Y+6, POP_X+6, "(4) All Tests");
+			cprint(POP_Y+7, POP_X+6, "(5) Skip Current Test");
+			cprint(POP_Y+8, POP_X+6, "(6) Select Test");
+			cprint(POP_Y+9, POP_X+6, "(7) Print mode");
+			cprint(POP_Y+10, POP_X+6, "(0) Cancel");
 			if (v->testsel < 0) {
-				cprint(POP_Y+3+v->xtst_flag, POP_X+5, ">");
+				if (fast_mode == 1) {
+				cprint(POP_Y+4, POP_X+5, ">");		
+				} else {
+					if (v->xtst_flag == 0) {
+						cprint(POP_Y+3, POP_X+5, ">");
+					} else {
+						cprint(POP_Y+4+v->xtst_flag, POP_X+5, ">");				
+					}
+				}
 			} else {
-				cprint(POP_Y+7, POP_X+5, ">");
+				cprint(POP_Y+8, POP_X+5, ">");
 			}
 			wait_keyup();
 			while (!sflag) {
@@ -114,39 +126,56 @@ void get_config()
 				case 2:
 					/* Default */
 					v->xtst_flag = 0;
+					fast_mode = 0;
 					if (v->test > DEFTESTS) {
 						bail++;
 					}
 					v->testsel = -1;
 					find_ticks();
 					sflag++;
-					cprint(LINE_INFO, COL_TST, "Std");
+					cprint(LINE_INFO, COL_TST, " Std");
 					break;
 				case 3:
+					/* Fast */
+					v->xtst_flag = 0;
+					fast_mode = 1;
+					if (v->test > DEFTESTS) {
+						bail++;
+					}
+					v->testsel = -1;
+					v->pass = 0;
+					v->ecount = 0;
+					find_ticks();
+					sflag++;
+					cprint(LINE_INFO, COL_TST, "Fast");
+					break;
+				case 4:
 					/* Extended */
 					v->xtst_flag = 1;
+					fast_mode = 0;
 					if (v->test <= DEFTESTS) {
 						bail++;
 					}
 					v->testsel = -1;
 					find_ticks();
 					sflag++;
-					cprint(LINE_INFO, COL_TST, "Ext");
+					cprint(LINE_INFO, COL_TST, " Ext");
 					break;
-				case 4:
+				case 5:
 					/* All */
+					fast_mode = 0;
 					v->xtst_flag = 2;
 					v->testsel = -1;
 					find_ticks();
 					sflag++;
-					cprint(LINE_INFO, COL_TST, "All");
+					cprint(LINE_INFO, COL_TST, " All");
 					break;
-				case 5:
+				case 6:
 					/* Skip test */
 					bail++;
 					sflag++;
 					break;
-				case 6:
+				case 7:
 					/* Select test */
 					popclear();
 					cprint(POP_Y+1, POP_X+2,
@@ -166,7 +195,7 @@ void get_config()
 					find_ticks();
 					sflag++;
 					bail++;
-					cprint(LINE_INFO, COL_TST, "#");
+					cprint(LINE_INFO, COL_TST, " #");
 					dprint(LINE_INFO, COL_TST+1, i, 2, 1);
 					break;
 				case 11:
@@ -409,9 +438,36 @@ void get_config()
 			wait_keyup();
 			restart();
 			break;
-                case 10:
-			reprint_screen = 1;
-			flag++;
+ 		case 10:   // experimental extra options
+ 			popclear();
+ 			cprint(POP_Y+1, POP_X+2, "Adv. Options :");
+ 			cprint(POP_Y+3, POP_X+5, "(1) Modify Timing ");
+ 			cprint(POP_Y+4, POP_X+5, "(2) Reprint Screen");
+ 			cprint(POP_Y+5, POP_X+5, "(0) Cancel        ");
+ 			wait_keyup();
+ 			while(!sflag) 
+   			{
+ 				switch(get_key()) 
+ 				{
+ 				case 2:
+ 				popclear();
+ 				get_menu();
+ 	            		case 3:
+ 				reprint_screen = 1;
+ 				sflag++;
+ 				flag++;
+ 				break;
+ 				//prime();
+ 				case 4:
+ 				break;
+ 				case 11:
+ 				case 57:
+ 				/* 0/CR - Cancel */
+ 					sflag++;
+ 					break;
+ 				}	
+ 			}
+ 			popclear();
 			break;
 		case 11:
 		case 57:

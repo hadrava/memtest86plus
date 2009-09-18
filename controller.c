@@ -3,7 +3,7 @@
  * Released under version 2 of the Gnu Public License.
  * By Chris Brady, cbrady@sgi.com
  * ----------------------------------------------------
- * MemTest86+ V1.27 Specific code (GPL V2.0)
+ * MemTest86+ V1.30 Specific code (GPL V2.0)
  * By Samuel DEMEULEMEESTER, sdemeule@memtest.org
  * http://www.x86-secret.com - http://www.memtest.org
  */
@@ -1338,7 +1338,7 @@ static void poll_timings_i852(void) {
 	// RAS Precharge (tRP)
 	temp = (drt&0x3);
 	if (temp == 0x0) { cprint(LINE_CPU+5, col2, "4-"); }
-	if (temp == 0x0) { cprint(LINE_CPU+5, col2, "3-"); }
+	if (temp == 0x1) { cprint(LINE_CPU+5, col2, "3-"); }
 	else { cprint(LINE_CPU+5, col2, "2-"); }
 	col2 +=2;
 	
@@ -1594,6 +1594,7 @@ static struct pci_memory_controller controllers[] = {
 	{ 0x1106, 0x3258, "VIA PT880", 0, poll_fsb_nothing, poll_timings_nothing, setup_nothing, poll_nothing },
 	{ 0x1106, 0x3188, "VIA K8T800", 0, poll_fsb_amd64, poll_timings_amd64, setup_amd64, poll_amd64 },
 	{ 0x1106, 0x0282, "VIA K8T800Pro", 0, poll_fsb_amd64, poll_timings_amd64, setup_amd64, poll_amd64 },
+	{ 0x1106, 0x3238, "VIA K8T890", 0, poll_fsb_amd64, poll_timings_amd64, setup_amd64, poll_amd64 },
 
 	/* Serverworks */
 	{ 0x1166, 0x0008, "CNB20HE",   0, poll_fsb_nothing, poll_timings_nothing, setup_cnb20, poll_nothing },

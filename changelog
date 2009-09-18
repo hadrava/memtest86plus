@@ -1,11 +1,7 @@
-- Bug Fixes with i915/925X memory ratio
-- Rewrite the buggy E7500/E7501 ECC Polling code (Thanks to Tyan)
-- Added advanced dectection for E7500/E7501
-- Added support for FSB533 LGA775 CPU
-- Added support for DDR2-600 mode on i915/925.
-- Added detection for Xeon DP/MP
-- Added detection for AMD K8 Sempron
-- Added detection for SiS 661
-- Fixed the KT133/266 freeze bug (again)
-- Fixed crash with ATi RS300 & Pentium M
-- Some bugs fixes & code optimization
+- Added on-fly timings change on some chipsets
+   (Thanks to Eric and Wee for this part)
+- Added i852/855 on-fly timing change
+- Added support for VIA K8T890
+- Added a "Fast" Mode (with MTRR & L1/L2 Caches)
+- Correct a bug (Disable MTRR for stronger test)
+- Some bug fixes

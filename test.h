@@ -2,8 +2,11 @@
  *
  * Released under version 2 of the Gnu Public License.
  * By Chris Brady, cbrady@sgi.com
+ * ----------------------------------------------------
+ * MemTest86+ V1.30 Specific code (GPL V2.0)
+ * By Samuel DEMEULEMEESTER, sdemeule@memtest.org
+ * http://www.x86-secret.com - http://www.memtest.org
  */
-
 
 #define E88     0x00
 #define E801    0x04
@@ -62,7 +65,7 @@ typedef unsigned long ulong;
 #define COL_MMAP	29
 #define COL_CACHE	40
 #define COL_ECC		46
-#define COL_TST		52
+#define COL_TST		51
 #define COL_PASS	56
 #define COL_ERR		63
 #define COL_ECC_ERR	72
@@ -167,32 +170,52 @@ struct pair {
 
 static inline void cache_off(void)
 {
-        asm(
-		"push %eax\n\t"
+    asm(
+		"pusha\n\t"
 		"movl %cr0,%eax\n\t"
-                "orl $0x40000000,%eax\n\t"  /* Set CD */
-                "movl %eax,%cr0\n\t"
+    "orl  $0x40000000,%eax\n\t"  /* Set CD   */
+    "andl $0x6FFFFFFF,%eax\n\t"  /* Clear NW */
+    "movl %eax,%cr0\n\t"				 /* Set CR0  */
+		"wbinvd\n\t" 								 /* Invalidate Cache */
+		"movl $0x01, %eax\n\t"			 /* Put 1 in eax */
+		"cpuid\n\t"									 /* cpuid */
+		"andl $0x01000, %edx\n\t"     /* MTRR available ? */
+		"jz    CB1\n\t"                /* No, go to end */
+		"movl $0x02FF, %ecx\n\t"		 /* Yes, disable it */
+		"rdmsr\n\t"
+		"andl $0xFFFFF3FF,%eax\n\t"
+		"wrmsr\n\t"
 		"wbinvd\n\t"
-		"pop  %eax\n\t");
+		"CB1:\n\t"
+		"popa\n\t");
 }
 static inline void cache_on(void)
 {
-        asm(
-		"push %eax\n\t"
+    asm(
+		"pusha\n\t"
 		"movl %cr0,%eax\n\t"
-                "andl $0x9fffffff,%eax\n\t" /* Clear CD and NW */ 
-                "movl %eax,%cr0\n\t"
-		"pop  %eax\n\t");
+    "andl $0x9fffffff,%eax\n\t"  /* Clear CD and NW		*/ 
+    "movl %eax,%cr0\n\t"
+		"movl $0x01, %eax\n\t"			 /* Put 1 in eax 			*/
+		"cpuid\n\t"									 /* cpuid							*/
+		"andl $0x01000, %edx\n\t"    /* MTRR available ?	*/
+		"jz    CB2\n\t"              /* No, go to end 		*/
+		"movl $0x02FF, %ecx\n\t"		 /* Yes, enable it 		*/
+		"rdmsr\n\t"
+		"orl $0x0C00,%eax\n\t"
+		"wrmsr\n\t"   
+		"CB2:\n\t"
+		"popa\n\t");
 }
 
 static inline void reboot(void)
 {
         asm(
 		"movl %cr0,%eax\n\t"
-       		"andl  $0x00000011,%eax\n\t"
-       		"orl   $0x60000000,%eax\n\t"
-       		"movl  %eax,%cr0\n\t"
-       		"movl  %eax,%cr3\n\t"
+    "andl  $0x00000011,%eax\n\t"
+    "orl   $0x60000000,%eax\n\t"
+    "movl  %eax,%cr0\n\t"
+    "movl  %eax,%cr3\n\t"
 		"movl  %cr0,%ebx\n\t"
 		"andl  $0x60000000,%ebx\n\t"
 		"jz    f\n\t"
