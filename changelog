@@ -1,11 +1,20 @@
-Memtest86+ V1.55
+Memtest86+ V1.60
 
 Enhancements :
-- Added support for Intel E7221
-- Added support for nForce 4 Intel Edition
-- Added detection for ATi Radeon Xpress 200
-- Added ECC polling for Intel E7221
+	- Added Detection for Pentium D
+	- Added Detection for Athlon & Opteron Dual Core
+	- Added Detection for 90 nm Athlon 64 / Sempron
+	- Added Detection for 90 nm Opteron
+	- Added experimental detection for Intel E8500
+	- Added detection for VIA KT880
 
 Bug Fixes :
-- More precise detection of K8 Memory Freq.
-- Some minor bug fixes.
+	- Correct Venice core detected as 0.13 µm
+	- Correct AMD751 not detected since 1.55
+	- Correct i855/DDR333 detection bug
+	- Correct E7xxx ECC polling (thanks to S. Wangnick)
+	- Removed E7520 ECC Support (not reliable)
+	- Added BadRAM patch	
+	- Some minor bug fixes.
+
+---------------------------------

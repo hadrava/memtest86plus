@@ -6,6 +6,10 @@
  * Released under version 2 of the Gnu Public License.
  *
  * By Rick van Rein, vanrein@zonnet.nl
+ * ----------------------------------------------------
+ * MemTest86+ V1.60 Specific code (GPL V2.0)
+ * By Samuel DEMEULEMEESTER, sdemeule@memtest.org
+ * http://www.x86-secret.com - http://www.memtest.org 
  */
 
 
@@ -28,13 +32,15 @@
  *  - Print a new pattern only when the pattern array is changed.
  */
 
+#define COMBINE_MASK(a,b,c,d) ((a & b & c & d) | (~a & b & ~c & d))
 
 /* Combine two adr/mask pairs to one adr/mask pair.
  */
 void combine (ulong adr1, ulong mask1, ulong adr2, ulong mask2,
 		ulong *adr, ulong *mask) {
-	*mask = (adr1 & ~mask1 & adr2 & ~mask2) |
-			(adr1 & mask1 & adr2 & mask2);
+
+	*mask = COMBINE_MASK (adr1, mask1, adr2, mask2);
+
 	*adr  = adr1 | adr2;
 	*adr &= *mask;	// Normalise, no fundamental need for this
 }

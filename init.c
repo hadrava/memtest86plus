@@ -3,7 +3,7 @@
  * Released under version 2 of the Gnu Public License.
  * By Chris Brady, cbrady@sgi.com
  * ----------------------------------------------------
- * MemTest86+ V1.55 Specific code (GPL V2.0)
+ * MemTest86+ V1.60 Specific code (GPL V2.0)
  * By Samuel DEMEULEMEESTER, sdemeule@memtest.org
  * http://www.x86-secret.com - http://www.memtest.org
  */
@@ -52,7 +52,7 @@ static void display_init(void)
 	for(i=0, pp=(char *)(SCREEN_ADR+1); i<TITLE_WIDTH; i++, pp+=2) {
 		*pp = 0x20;
 	}
-	cprint(0, 0, "      Memtest86  v1.55      ");
+	cprint(0, 0, "      Memtest86  v1.60      ");
 
 	for(i=0, pp=(char *)(SCREEN_ADR+1); i<2; i++, pp+=30) {
 		*pp = 0xA4;
@@ -470,28 +470,41 @@ void cpu_type(void)
 			l2_cache += cpu_id.cache_info[10];
 			switch(cpu_id.model) {
 			default:
-				cprint(LINE_CPU, 0, "AMD Athlon 64");
-				off = 13;
+				cprint(LINE_CPU, 0, "AMD K8");
+				off = 6;
 				break;
+			case 1:
 			case 5:
-				cprint(LINE_CPU, 0, "AMD Opteron (0.13)");
+				if (((cpu_id.ext >> 16) & 0xF) != 0) {
+					cprint(LINE_CPU, 0, "AMD Opteron (0.09)");				
+				} else {
+					cprint(LINE_CPU, 0, "AMD Opteron (0.13)");
+				}
 				off = 18;
 				break;
-			case  4:
-			case 12:
-				if (l2_cache == 256) {
-					cprint(LINE_CPU, 0, "AMD Sempron (0.13)");
-					off = 18;
-				} else {
-					cprint(LINE_CPU, 0, "Athlon 64 (0.13)");
-					off = 16;
-				}
+			case 3:
+			case 11:
+				cprint(LINE_CPU, 0, "Athlon 64 X2");
+				off = 12;				
 				break;
+			case 4:
+			case 7:
+			case 9:
+			case 12:
+			case 14:
 			case 15:
-				if ((cpu_id.ext >> 16) & 1) {
-				cprint(LINE_CPU, 0, "Athlon 64 (0.09)");
+				if (((cpu_id.ext >> 16) & 0xF) != 0) {
+					if (l2_cache > 256) {
+						cprint(LINE_CPU, 0, "Athlon 64 (0.09)");
+					} else {
+						cprint(LINE_CPU, 0, "Sempron (0.09)");						
+					}
 				} else {
-				cprint(LINE_CPU, 0, "Athlon 64 (0.13)");			
+					if (l2_cache > 256) {
+						cprint(LINE_CPU, 0, "Athlon 64 (0.13)");
+					} else {
+						cprint(LINE_CPU, 0, "Sempron (0.13)");						
+					}		
 				}
 				off = 16;
 				break;
@@ -727,8 +740,6 @@ void cpu_type(void)
 					}
 					break;
 				case 3:
-				case 4:
-				case 5:
 					if (l2_cache == 256) {
 						cprint(LINE_CPU, 0, "Celeron (0.09)");
 						off = 14;
@@ -743,6 +754,14 @@ void cpu_type(void)
 						off = 16;
 					}
 					break;
+				case 4:
+					cprint(LINE_CPU, 0, "Pentium D (0.09)");
+					off = 16;		
+					break;
+				default:
+					cprint(LINE_CPU, 0, "Unknown Intel");
+					off = 13;		
+					break;													
 				}
 				break;
 			}

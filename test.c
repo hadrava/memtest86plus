@@ -4,7 +4,7 @@
  * Released under version 2 of the Gnu Public License.
  * By Chris Brady, cbrady@sgi.com
  * ----------------------------------------------------
- * MemTest86+ V2.00 Specific code (GPL V2.0)
+ * MemTest86+ V1.60 Specific code (GPL V2.0)
  * By Samuel DEMEULEMEESTER, sdemeule@memtest.org
  * http://www.x86-secret.com - http://www.memtest.org
  */
@@ -1466,6 +1466,12 @@ static void print_err_counts(void)
 	int i;
 	char *pp;
 
+	if ((v->ecount > 1048756) && (v->ecount % 32768 != 0))
+	    return;
+	   
+	if ((v->ecount > 2048) && (v->ecount % 1024 != 0))
+	    return;
+	  
 	dprint(LINE_INFO, COL_ERR, v->ecount, 6, 0);
 	dprint(LINE_INFO, COL_ECC_ERR, v->ecc_ecount, 6, 0);
 

@@ -405,6 +405,12 @@ static void setup_iE7xxx(void)
 		pci_conf_read(ctrl.bus, ctrl.dev, ctrl.fn, 0xE0, 2, &dvnp);
 		pci_conf_write(ctrl.bus, ctrl.dev, ctrl.fn , 0xE0, 2, (dvnp & 0xFE));
 
+		/* Clear any routing of ECC errors to interrupts that the BIOS might have set up */
+		pci_conf_write(ctrl.bus, ctrl.dev, ctrl.fn +1, 0x88, 1, 0x0);
+		pci_conf_write(ctrl.bus, ctrl.dev, ctrl.fn +1, 0x8A, 1, 0x0);
+		pci_conf_write(ctrl.bus, ctrl.dev, ctrl.fn +1, 0x8C, 1, 0x0);
+	
+
 	}
 
 	/* Clear any prexisting error reports */
@@ -1000,7 +1006,7 @@ static void poll_fsb_amd64(void) {
 		rdmsr(0xc0010015, mcgsrl, mcgsth);
 		fid = ((mcgsrl >> 24)& 0x3F);
 	}
-
+	
 	/* Extreme simplification. */
 	coef = ( fid / 2 ) + 4.0;
 
@@ -1310,7 +1316,7 @@ static void poll_fsb_i855(void) {
 	} else {
 		pci_conf_read( 0, 0, 0, 0xC6, 2, &mchcfg);
 		if (((mchcfg >> 10)&3) == 0) { dramratio = 1; }
-		else if (((mchcfg >> 10)&3) == 0) { dramratio = 1.666667; }
+		else if (((mchcfg >> 10)&3) == 1) { dramratio = 1.666667; }
 		else { dramratio = 1.333333333; }
 	}
 
@@ -1850,6 +1856,7 @@ static struct pci_memory_controller controllers[] = {
 	{ 0x1106, 0x0601, "VIA PLE133",  0, poll_fsb_nothing, poll_timings_nothing, setup_nothing, poll_nothing },
 	{ 0x1106, 0x3099, "VIA KT266(A)/KT333", 0, poll_fsb_nothing, poll_timings_nothing, setup_nothing, poll_nothing },
 	{ 0x1106, 0x3189, "VIA KT400(A)/600", 0, poll_fsb_nothing, poll_timings_nothing, setup_nothing, poll_nothing },
+	{ 0x1106, 0x0269, "VIA KT880", 0, poll_fsb_nothing, poll_timings_nothing, setup_nothing, poll_nothing },
 	{ 0x1106, 0x3205, "VIA KM400", 0, poll_fsb_nothing, poll_timings_nothing, setup_nothing, poll_nothing },
 	{ 0x1106, 0x3116, "VIA KM266", 0, poll_fsb_nothing, poll_timings_nothing, setup_nothing, poll_nothing },
 	{ 0x1106, 0x3156, "VIA KN266", 0, poll_fsb_nothing, poll_timings_nothing, setup_nothing, poll_nothing },
@@ -1890,7 +1897,8 @@ static struct pci_memory_controller controllers[] = {
 	{ 0x8086, 0x255d, "Intel E7205",     0, poll_fsb_p4, poll_timings_nothing, setup_iE7xxx, poll_iE7xxx },
   { 0x8086, 0x3592, "Intel E7320",     0, poll_fsb_p4, poll_timings_E7520, setup_iE7520, poll_iE7520 },
   { 0x8086, 0x2588, "Intel E7221",     1, poll_fsb_i925, poll_timings_i925, setup_i925, poll_iE7221 },
-  { 0x8086, 0x3590, "Intel E7520",     0, poll_fsb_p4, poll_timings_E7520, setup_iE7520, poll_iE7520 },
+  { 0x8086, 0x3590, "Intel E7520",     0, poll_fsb_p4, poll_timings_E7520, setup_iE7520, poll_nothing },
+  { 0x8086, 0x2600, "Intel E8500",     0, poll_fsb_p4, poll_timings_nothing, setup_nothing, poll_nothing },
 	{ 0x8086, 0x2570, "Intel i848/i865", 0, poll_fsb_i875, poll_timings_i875, setup_i875, poll_nothing },
 	{ 0x8086, 0x2578, "Intel i875P",     0, poll_fsb_i875, poll_timings_i875, setup_i875, poll_i875 },
 	{ 0x8086, 0x2550, "Intel E7505",     0, poll_fsb_p4, poll_timings_nothing, setup_iE7xxx, poll_iE7xxx },
@@ -1991,7 +1999,7 @@ void find_controller(void)
 	result = pci_conf_read(ctrl.bus, ctrl.dev, ctrl.fn, PCI_DEVICE_ID, 2, &device);
 	ctrl.index = 0;	
 		if (result == 0) {
-			for(i = 2; i < sizeof(controllers)/sizeof(controllers[0]); i++) {
+			for(i = 1; i < sizeof(controllers)/sizeof(controllers[0]); i++) {
 				if ((controllers[i].vendor == vendor) && (controllers[i].device == device)) {
 					ctrl.index = i;
 					break;
