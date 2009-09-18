@@ -3,7 +3,7 @@
  * Released under version 2 of the Gnu Public License.
  * By Chris Brady, cbrady@sgi.com
  * ----------------------------------------------------
- * MemTest86+ V1.15 Specific code (GPL V2.0)
+ * MemTest86+ V1.25 Specific code (GPL V2.0)
  * By Samuel DEMEULEMEESTER, sdemeule@memtest.org
  * http://www.x86-secret.com - http://www.memtest.org
  */
@@ -51,7 +51,7 @@ static void display_init(void)
  	for(i=0, pp=(char *)(SCREEN_ADR+1); i<TITLE_WIDTH; i++, pp+=2) {
   	*pp = 0x20;
  	}
- 	cprint(0, 0, "      Memtest86  v1.20      ");
+ 	cprint(0, 0, "      Memtest86  v1.25      ");
 
  	for(i=0, pp=(char *)(SCREEN_ADR+1); i<2; i++, pp+=30) {
 	*pp = 0xA4;
@@ -441,29 +441,23 @@ void cpu_type(void)
 			break;
 		case 15:
 			switch(cpu_id.model) {
-			case 4:
-			case 7:
-			case 8:
-			case 11:
-			case 12:
-			case 15:
 			default:
 				cprint(LINE_CPU, 0, "AMD Athlon 64");
                                 off = 13;
-                                l1_cache = cpu_id.cache_info[3];
-				l1_cache += cpu_id.cache_info[7];
-                                l2_cache = (cpu_id.cache_info[11] << 8);
-                                l2_cache += cpu_id.cache_info[10];
                                 break;
 			case 5:
 				cprint(LINE_CPU, 0, "AMD Opteron");
                                 off = 11;
-                                l1_cache = cpu_id.cache_info[3];
-				l1_cache += cpu_id.cache_info[7];
-                                l2_cache = (cpu_id.cache_info[11] << 8);
-                                l2_cache += cpu_id.cache_info[10];
                                 break;
+                        case 12:
+				cprint(LINE_CPU, 0, "AMD Sempron");
+                                off = 11;                        	
+                        	break;
 			}
+			l1_cache = cpu_id.cache_info[3];
+			l1_cache += cpu_id.cache_info[7];
+                        l2_cache = (cpu_id.cache_info[11] << 8);
+                        l2_cache += cpu_id.cache_info[10];
 			break;
 		}
 		break;
@@ -654,10 +648,16 @@ void cpu_type(void)
 			switch(cpu_id.model) {
 			case 0:
 			case 1:			
-				if (l2_cache == 128) {
+                                if (l2_cache == 128) {
                                 cprint(LINE_CPU, 0, "Celeron (0.18)");
                                 off = 14;	
-                                } else {
+                                } else if (cpu_id.pwrcap == 0x0B) {
+                                cprint(LINE_CPU, 0, "Xeon DP (0.18)");
+                                off = 14;
+                                } else if (cpu_id.pwrcap == 0x0C) {
+                                cprint(LINE_CPU, 0, "Xeon MP (0.18)");
+                                off = 14;                                	
+                        	} else {
                                 cprint(LINE_CPU, 0, "Pentium 4 (0.18)");
                                 off = 16;
                         	}
@@ -666,7 +666,13 @@ void cpu_type(void)
                                 if (l2_cache == 128) {
                                 cprint(LINE_CPU, 0, "Celeron (0.13)");
                                 off = 14;	
-                                } else {
+                                } else if (cpu_id.pwrcap == 0x0B) {
+                                cprint(LINE_CPU, 0, "Xeon DP (0.13)");
+                                off = 14;
+                                } else if (cpu_id.pwrcap == 0x0C) {
+                                cprint(LINE_CPU, 0, "Xeon MP (0.13)");
+                                off = 14;                                	
+                        	} else {
                                 cprint(LINE_CPU, 0, "Pentium 4 (0.13)");
                                 off = 16;
                         	}
@@ -676,7 +682,13 @@ void cpu_type(void)
                                 if (l2_cache == 256) {
                                 cprint(LINE_CPU, 0, "Celeron (0.09)");
                                 off = 14;	
-                                } else {
+                                } else if (cpu_id.pwrcap == 0x0B) {
+                                cprint(LINE_CPU, 0, "Xeon DP (0.09)");
+                                off = 14;
+                                } else if (cpu_id.pwrcap == 0x0C) {
+                                cprint(LINE_CPU, 0, "Xeon MP (0.09)");
+                                off = 14;                                	
+                        	} else {
                                 cprint(LINE_CPU, 0, "Pentium 4 (0.09)");
                                 off = 16;
                         	}

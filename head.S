@@ -347,6 +347,7 @@ have_cpuid:
 	movl	X86_VENDOR_ID+8(%esi), %eax
 	cmpl	$0x6c65746e,%eax	# Is this an Intel CPU?
 	jne	not_intel
+	movb	%bl, X86_PWRCAP(%esi) 	# Store BrandID in AMD PWRCAP if the CPU is from Intel
 	movl	$2, %eax		# Use the CPUID instruction to get cache info 
 	cpuid
 	movl	%eax, X86_CACHE(%esi)

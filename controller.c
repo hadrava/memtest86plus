@@ -3,7 +3,7 @@
  * Released under version 2 of the Gnu Public License.
  * By Chris Brady, cbrady@sgi.com
  * ----------------------------------------------------
- * MemTest86+ V1.15 Specific code (GPL V2.0)
+ * MemTest86+ V1.25 Specific code (GPL V2.0)
  * By Samuel DEMEULEMEESTER, sdemeule@memtest.org
  * http://www.x86-secret.com - http://www.memtest.org
  */
@@ -68,6 +68,44 @@ static struct ecc_info {
 	.cap = ECC_UNKNOWN,
 	.mode = ECC_UNKNOWN,
 };
+
+void print_timings_info(float cas, int rcd, int rp, int ras) {
+
+	/* Now, we could print some additionnals timings infos) */
+	cprint(LINE_CPU+5, col2 +1, "/ CAS : ");
+	col2 += 9;
+	
+	// CAS Latency (tCAS)
+	if (cas == 1.5) {
+	cprint(LINE_CPU+5, col2, "1.5"); col2 += 3;  
+	} else if (cas == 2.5) {
+	cprint(LINE_CPU+5, col2, "2.5"); col2 += 3; 
+	} else {
+	dprint(LINE_CPU+5, col2, cas, 1, 0); col2 += 1; 
+	}
+	cprint(LINE_CPU+5, col2, "-"); col2 += 1;
+
+	// RAS-To-CAS (tRCD)
+	dprint(LINE_CPU+5, col2, rcd, 1, 0);
+	cprint(LINE_CPU+5, col2+1, "-");
+	col2 +=2;
+
+	// RAS Precharge (tRP)
+	dprint(LINE_CPU+5, col2, rp, 1, 0);
+	cprint(LINE_CPU+5, col2+1, "-");
+	col2 +=2;
+	
+	// RAS Active to precharge (tRAS)
+	if (ras < 9) {
+	dprint(LINE_CPU+5, col2, ras, 1, 0);
+	col2 += 2;
+	} else {
+	dprint(LINE_CPU+5, col2, ras, 2, 0);
+	col2 += 3;
+	}
+
+}
+
 
 void print_fsb_info(float val, const char *text_fsb) {
 
@@ -313,12 +351,12 @@ static void setup_iE7xxx(void)
 	unsigned long mchcfgns;
 	unsigned long drc;
 	unsigned long device;
+	unsigned long dvnp;
 	
-
 	/* Read the hardare capabilities */
 	pci_conf_read(ctrl.bus, ctrl.dev, ctrl.fn, 0x52, 2, &mchcfgns);
 	pci_conf_read(ctrl.bus, ctrl.dev, ctrl.fn, 0x7C, 4, &drc);
-	
+
 	/* This is a check for E7205 */
 	pci_conf_read(ctrl.bus, ctrl.dev, ctrl.fn, 0x02, 2, &device);
 		
@@ -334,32 +372,40 @@ static void setup_iE7xxx(void)
 	/* E7205 doesn't support scrubbing */
 	if (device != 0x255d) {
 	/* scrub enabled */
-	/* For E7501, 10b or 11b (2:1) indicate valid SCRUB operations */
-	ctrl.cap = ECC_SCRUB;
-	if (mchcfgns & (1 << 2)) {
-		ctrl.mode |= __ECC_SCRUB;
+	/* For E7501, valid SCRUB operations is bit 0 / D0:F0:R70-73 */
+		ctrl.cap = ECC_SCRUB;
+		if (mchcfgns & 1) {
+			ctrl.mode |= __ECC_SCRUB;
+		}
+	
+	/* Now, we can active Dev1/Fun1 */
+	/* Thanks to Tyan for providing us the board to solve this */
+	pci_conf_read(ctrl.bus, ctrl.dev, ctrl.fn, 0xE0, 2, &dvnp);
+	pci_conf_write(ctrl.bus, ctrl.dev, ctrl.fn , 0xE0, 2, (dvnp & 0xFE));
+	
 	}
-	}
+	
 	/* Clear any prexisting error reports */
 	pci_conf_write(ctrl.bus, ctrl.dev, ctrl.fn +1, 0x80, 1, 3);
 	pci_conf_write(ctrl.bus, ctrl.dev, ctrl.fn +1, 0x82, 1, 3);
+	
+
 }
 
 static void poll_iE7xxx(void)
 {
 	unsigned long ferr;
 	unsigned long nerr;
-
-	unsigned char err;
+	
 	pci_conf_read(ctrl.bus, ctrl.dev, ctrl.fn +1, 0x80, 1, &ferr);
 	pci_conf_read(ctrl.bus, ctrl.dev, ctrl.fn +1, 0x82, 1, &nerr);
 	
-	err = ferr | nerr;
-	if (err & 1) {
+	if (ferr & 1) {
 		/* Find out about the first correctable error */
 		unsigned long celog_add;
 		unsigned long celog_syndrome;
 		unsigned long page;
+		
 		/* Read the error location */
 		pci_conf_read(ctrl.bus, ctrl.dev, ctrl.fn +1, 0xA0, 4, &celog_add);
 		/* Read the syndrome */
@@ -370,11 +416,16 @@ static void poll_iE7xxx(void)
 		
 		/* Report the error */
 		print_ecc_err(page, 0, 1, celog_syndrome, 0);
+		
+		/* Clear Bit */
+		pci_conf_write(ctrl.bus, ctrl.dev, ctrl.fn +1, 0x80, 1, ferr & 3);
 	}
-	if (err & 2) {
+	
+	if (ferr & 2) {
 		/* Found out about the first uncorrectable error */
 		unsigned long uccelog_add;
 		unsigned long page;
+		
 		/* Read the error location */
 		pci_conf_read(ctrl.bus, ctrl.dev, ctrl.fn +1, 0xB0, 4, &uccelog_add);
 
@@ -384,10 +435,15 @@ static void poll_iE7xxx(void)
 		/* Report the error */
 		print_ecc_err(page, 0, 0, 0, 0);
 		
+		/* Clear Bit */
+		pci_conf_write(ctrl.bus, ctrl.dev, ctrl.fn +1, 0x80, 1, ferr & 3);
 	}
-	/* Clear the error registers */
-	pci_conf_write(ctrl.bus, ctrl.dev, ctrl.fn +1, 0x80, 1, ferr & 3);
-	pci_conf_write(ctrl.bus, ctrl.dev, ctrl.fn +1, 0x82, 1, nerr & 3);
+	
+	/* Check if DRAM_NERR contains data */
+	if (nerr & 3) {
+		pci_conf_write(ctrl.bus, ctrl.dev, ctrl.fn +1, 0x82, 1, nerr & 3);
+	}
+	
 }
 
 static void setup_i440gx(void)
@@ -723,7 +779,7 @@ static void poll_i860(void)
 /* --------------------------------------------------------------------- */
 
 
-static int amd64cm[] = {0x0, 0x0, 0x0, 0x0, 0x0, 0x2, 0x4, 0x6, 0x8, 0xA, 0xC, 0xE, 0x10, 0x12, 0x14, 0x16};
+
 static float athloncoef[] = {11, 11.5, 12.0, 12.5, 5.0, 5.5, 6.0, 6.5, 7.0, 7.5, 8.0, 8.5, 9.0, 9.5, 10.0, 10.5};
 static float athloncoef2[] = {12, 19.0, 12.0, 20.0, 13.0, 13.5, 14.0, 21.0, 15.0, 22, 16.0, 16.5, 17.0, 18.0, 23.0, 24.0};
 
@@ -731,35 +787,29 @@ static void poll_fsb_amd64(void) {
 
 	unsigned int mcgsrl;
 	unsigned int mcgsth;
-	unsigned long fid, temp, temp2;
+	unsigned long fid, temp2;
 	unsigned long dramchr;
 	double clockratio;
 	double dramclock;
-	int i;
+
 	float coef;
 	coef = 10;
 	
 	/* First, got the FID by MSR */
-	/* First look if Cool 'n Quiet is supported to choose the right msr */
+	/* First look if Cool 'n Quiet is supported to choose the best msr */
 	if (((cpu_id.pwrcap >> 1) & 1) == 1) {
 	rdmsr(0xc0010042, mcgsrl, mcgsth);
-	fid = (mcgsrl& 0x1F);
+	fid = (mcgsrl & 0x3F);
 	} else {
 	rdmsr(0xc0010015, mcgsrl, mcgsth);
-	fid = ((mcgsrl >> 24)& 0x1F);
+	fid = ((mcgsrl >> 24)& 0x3F);
 	}
 	
-	temp = fid & 0x1E;
+	/* Extreme simplification. */
+	coef = ( fid / 2 ) + 4.0;
 	
-	for(i = 4; i < sizeof(amd64cm)/sizeof(amd64cm[0]); i++) {
-			if (amd64cm[i] == temp) {
-				coef = i;
-				break;
-				}
-			}
-	
-	/* Support for .5 coef */
-	if ((fid & 1) == 1) { coef = coef + 0.5; }
+	/* Support for .5 coef */ 
+	if ((fid & 1) == 1) { coef = coef + 0.5; } 
 	
 	/* Next, we need the clock ratio */
 	pci_conf_read(0, 24, 2, 0x94, 4, &dramchr);
@@ -807,14 +857,20 @@ static void poll_fsb_i925(void) {
 	
 	/* Find dramratio */
 	pci_conf_read( 0, 0, 0, 0x44, 4, &dev0);
-	ptr=(long*)(dev0+0x112);
+	ptr=(long*)(dev0+0xC00);
 	mchcfg = *ptr & 0xFFFF;
 	dramratio = 1;
-	mchcfg = (mchcfg >> 12)&3;
+
+	mchcfg = (mchcfg >> 4)&3;
 	
 	if (mchcfg == 2) { dramratio = 1; } 
-	else if (mchcfg == 3) { dramratio = 1.33334; }
 	else if (mchcfg == 1) { dramratio = 0.66667; }
+	else if (mchcfg == 3) { 
+		// If mchcfg[0] = 1 => FSB533 / = 0 => FSB800
+		if ((mchcfg & 1) == 0) { dramratio = 1.33334; }
+		else { dramratio = 1.5; }
+	}
+
 
 	// Compute RAM Frequency 
 	fsb = ((extclock /1000) / coef);
@@ -824,7 +880,6 @@ static void poll_fsb_i925(void) {
 	print_fsb_info(dramclock, "RAM : "); 
 	
 	/* Print FSB (only if ECC is not enabled) */
-		
 	cprint(LINE_CPU+4, col +1, "- FSB : ");
 	col += 9;
 	dprint(LINE_CPU+4, col, fsb, 3,0);
@@ -884,27 +939,37 @@ static void poll_fsb_i875(void) {
 
 static void poll_fsb_p4(void) {
 
-	ulong fsb;
+	ulong fsb, idetect;
 	unsigned int msr_lo, msr_hi;
 	int coef;
 
-	/* Find multiplier (by MSR) */
+	/* Find multiplier (by MSR) - Added a check for P-M for ATi RSxxx chipsets */
+	if (cpu_id.type == 6) {	
+	rdmsr(0x2A, msr_lo, msr_hi);
+	coef = (msr_lo >> 22) & 0x1F;
+	} else {
 	rdmsr(0x2C, msr_lo, msr_hi);
-
-	coef = (msr_lo >> 24) & 0x1F;
+	coef = (msr_lo >> 24) & 0x1F;	
+	}
 
 	fsb = ((extclock /1000) / coef);
 
 	/* Print FSB */
-
 	cprint(LINE_CPU+4, col +1, "/ FSB : ");
 	col += 9;
 	dprint(LINE_CPU+4, col, fsb, 3,0);
 	col += 3;
 	cprint(LINE_CPU+4, col +1, "Mhz");
 	col += 4;
+	
+	/* For synchro only chipsets */
+	pci_conf_read( 0, 0, 0, 0x02, 2, &idetect);
+	if (idetect == 0x2540 || idetect == 0x254C) {
+	print_fsb_info(fsb, "RAM : ");
+	}
 
 }
+
 
 static void poll_fsb_i855(void) {
 
@@ -1050,7 +1115,6 @@ static void poll_timings_i925(void) {
 	ulong dev0, mch, drt, drc, dcc, temp;
 	long *ptr;
 	
-	
 	//Read Offset 9C
 	pci_conf_read( 0, 0, 0, 0x9C, 1, &mch);
 	
@@ -1125,13 +1189,14 @@ static void poll_timings_i925(void) {
 	else if (temp == 2) { cprint(LINE_CPU+5, col2, " Dual Channel (Interleaved)"); }
 	else { cprint(LINE_CPU+5, col2, " Single Channel (64 bits)"); }
 	
-	
 }
 
 static void poll_timings_i875(void) {
 
 	ulong dev6, dev62;
 	ulong temp;
+	float cas;
+	int rcd, rp, ras;
 	long *ptr, *ptr2;
 		
 	/* Read the MMR Base Address & Define the pointer */
@@ -1147,49 +1212,33 @@ static void poll_timings_i875(void) {
 		cprint(LINE_CPU+4, col +1, "- PAT : Disabled");
 	}
 
-	/* Now, we could print some additionnals timings infos) */
-	cprint(LINE_CPU+5, col2 +1, "/ CAS : ");
-	col2 += 9;
+	/* Now, we could check some additionnals timings infos) */
 	
 	ptr=(long*)(dev6+0x60);
 	// CAS Latency (tCAS)
 	temp = ((*ptr >> 5)& 0x3);
-	if (temp == 0x0) { cprint(LINE_CPU+5, col2, "2.5-"); col2 +=4; }
-	if (temp == 0x1) { cprint(LINE_CPU+5, col2, "2-"); col2 +=2; }
-	if (temp == 0x2) { cprint(LINE_CPU+5, col2, "3-"); col2 +=2; }
+	if (temp == 0x0) { cas = 2.5; } else if (temp == 0x1) { cas = 2; } else { cas = 3; }
 		
 	// RAS-To-CAS (tRCD)
 	temp = ((*ptr >> 2)& 0x3);
-	if (temp == 0x0) { cprint(LINE_CPU+5, col2, "4-"); }
-	if (temp == 0x1) { cprint(LINE_CPU+5, col2, "3-"); }
-	if (temp == 0x2) { cprint(LINE_CPU+5, col2, "2-"); }
-	col2 +=2;
+	if (temp == 0x0) { rcd = 4; } else if (temp == 0x1) { rcd = 3; } else { rcd = 2; }
 
 	// RAS Precharge (tRP)
 	temp = (*ptr&0x3);
-	if (temp == 0x0) { cprint(LINE_CPU+5, col2, "4-"); }
-	if (temp == 0x1) { cprint(LINE_CPU+5, col2, "3-"); }
-	if (temp == 0x2) { cprint(LINE_CPU+5, col2, "2-"); }
-	col2 +=2;
+	if (temp == 0x0) { rp = 4; } else if (temp == 0x1) { rp = 3; } else { rp = 2; }
 	
 	// RAS Active to precharge (tRAS)
 	temp = ((*ptr >> 7)& 0x7);
-	if (temp == 0x0) { cprint(LINE_CPU+5, col2, "10"); col2 +=2; }
-	if (temp == 0x1) { cprint(LINE_CPU+5, col2, "9"); col2 +=1; }
-	if (temp == 0x2) { cprint(LINE_CPU+5, col2, "8"); col2 +=1; }
-	if (temp == 0x3) { cprint(LINE_CPU+5, col2, "7"); col2 +=1; }
-	if (temp == 0x4) { cprint(LINE_CPU+5, col2, "6"); col2 +=1; }
-	if (temp == 0x5) { cprint(LINE_CPU+5, col2, "5"); col2 +=1; }
+	ras = 10 - temp;
 	
-	cprint(LINE_CPU+5, col2+1, "/"); col2 +=2;
+	// Print timings
+	print_timings_info(cas, rcd, rp, ras);
 	
 	// Print 64 or 128 bits mode
 	if (((*ptr2 >> 21)&1) == 1) {
-		cprint(LINE_CPU+5, col2, " Dual Channel (128 bits)"); 
-		col2 +=24;
+		cprint(LINE_CPU+5, col2, "/ Dual Channel (128 bits)"); 
 	} else {
-		cprint(LINE_CPU+5, col2, " Single Channel (64 bits)"); 
-		col2 +=15;
+		cprint(LINE_CPU+5, col2, "/ Single Channel (64 bits)"); 
 	}
 }
 
@@ -1226,6 +1275,32 @@ static void poll_timings_i855(void) {
 	if (temp == 0x1) { cprint(LINE_CPU+5, col2, "9"); col2 +=6; }
 	if (temp == 0x2) { cprint(LINE_CPU+5, col2, "8"); col2 +=5; }
 	col2 +=1;
+
+}
+
+static void poll_timings_E750x(void) {
+
+	ulong drt, drc, temp;
+	float cas;
+	int rcd, rp, ras;
+	
+	pci_conf_read( 0, 0, 0, 0x78, 4, &drt);
+	pci_conf_read( 0, 0, 0, 0x7C, 4, &drc);
+	
+	if ((drt >> 4) & 1) { cas = 2; } else { cas = 2.5; };
+	if ((drt >> 1) & 1) { rcd = 2; } else { rcd = 3; };
+	if (drt & 1) { rp = 2; } else { rp = 3; };
+
+	temp = ((drt >> 9) & 3);
+	if (temp == 2) { ras = 5; } else if (temp == 1) { ras = 6; } else { ras = 7; }
+	
+	print_timings_info(cas, rcd, rp, ras);
+	
+	if (((drc >> 22)&1) == 1) {
+		cprint(LINE_CPU+5, col2, "/ Dual Channel (128 bits)"); 
+	} else {
+		cprint(LINE_CPU+5, col2, "/ Single Channel (64 bits)"); 
+	}
 
 }
 
@@ -1469,6 +1544,7 @@ static struct pci_memory_controller controllers[] = {
         { 0x1039, 0x0748, "SiS 748",   0, poll_fsb_amd32, poll_timings_nothing, setup_nothing, poll_nothing },
         { 0x1039, 0x0655, "SiS 655",   0, poll_fsb_p4, poll_timings_nothing, setup_nothing, poll_nothing },
         { 0x1039, 0x0648, "SiS 648",   0, poll_fsb_p4, poll_timings_nothing, setup_nothing, poll_nothing },
+        { 0x1039, 0x0661, "SiS 661",   0, poll_fsb_p4, poll_timings_nothing, setup_nothing, poll_nothing },
 
 	/* ALi */
 	{ 0x10b9, 0x1531, "Aladdin 4", 0, poll_fsb_nothing, poll_timings_nothing, setup_nothing, poll_nothing },
@@ -1488,7 +1564,7 @@ static struct pci_memory_controller controllers[] = {
 	{ 0x10de, 0x00E1, "nForce3 250", 0, poll_fsb_amd64, poll_timings_amd64, setup_amd64, poll_amd64 },
 	
 	/* VIA */
-	{ 0x1106, 0x0305, "VIA KT133/KT133A",    0, poll_fsb_amd32, poll_timings_nothing, setup_nothing, poll_nothing },
+	{ 0x1106, 0x0305, "VIA KT133/KT133A",    0, poll_fsb_nothing, poll_timings_nothing, setup_nothing, poll_nothing },
 	{ 0x1106, 0x0391, "vt8371",    0, poll_fsb_nothing, poll_timings_nothing, setup_nothing, poll_nothing },
 	{ 0x1106, 0x0501, "vt8501",    0, poll_fsb_nothing, poll_timings_nothing, setup_nothing, poll_nothing },
 	{ 0x1106, 0x0585, "vt82c585",  0, poll_fsb_nothing, poll_timings_nothing, setup_nothing, poll_nothing },
@@ -1534,8 +1610,8 @@ static struct pci_memory_controller controllers[] = {
 	{ 0x8086, 0x71A0, "Intel i440gx",    0, poll_fsb_nothing, poll_timings_nothing, setup_i440gx, poll_i440gx },
 	{ 0x8086, 0x71A2, "Intel i440gx",    0, poll_fsb_nothing, poll_timings_nothing, setup_i440gx, poll_i440gx },
 	{ 0x8086, 0x84C5, "Intel i450gx",    0, poll_fsb_nothing, poll_timings_nothing, setup_nothing, poll_nothing },
-	{ 0x8086, 0x2540, "Intel E7500",     1, poll_fsb_p4, poll_timings_nothing, setup_iE7xxx, poll_iE7xxx },
-	{ 0x8086, 0x254C, "Intel E7501",     0, poll_fsb_p4, poll_timings_nothing, setup_iE7xxx, poll_iE7xxx },
+	{ 0x8086, 0x2540, "Intel E7500",     1, poll_fsb_p4, poll_timings_E750x, setup_iE7xxx, poll_iE7xxx },
+	{ 0x8086, 0x254C, "Intel E7501",     1, poll_fsb_p4, poll_timings_E750x, setup_iE7xxx, poll_iE7xxx },
 	{ 0x8086, 0x255d, "Intel E7205",     0, poll_fsb_p4, poll_timings_nothing, setup_iE7xxx, poll_iE7xxx },
 	{ 0x8086, 0x2570, "Intel i848/i865", 0, poll_fsb_i875, poll_timings_i875, setup_i875, poll_nothing },
         { 0x8086, 0x2578, "Intel i875P",     0, poll_fsb_i875, poll_timings_i875, setup_i875, poll_i875 },
@@ -1600,8 +1676,8 @@ static void print_memory_controller(void)
 	if (ctrl.mode & __ECC_SCRUB) {
 		int on;
 		on = ctrl.mode & __ECC_SCRUB;
-		cprint(LINE_CPU+4, col, "Scrub");
-		cprint(LINE_CPU+4, col +5, on?"+ ":"- ");
+		cprint(LINE_CPU+4, col, " Scrub");
+		cprint(LINE_CPU+4, col +6, on?"+ ":"- ");
 		col += 7;
 	}
 	if (ctrl.cap & __ECC_UNEXPECTED) {
