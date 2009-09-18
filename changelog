@@ -1,15 +1,11 @@
+Memtest86+ V1.51
+
 Enhancements :
-- Added support for Intel i945P/G (Lakeport)
-- Added support for Intel i915PM/GM (Alviso)
-- Added support for Intel E7520 (Lindenhurst)
-- Added support for Intel E7520 (Lindenhurst-VS)
-- Added support for P4 6xx serie
-- Rewrite all Athlon 64 detection code (for 90nm)
-- An uncached test is back in Menu 1 (Experimental)
+- Added support for Intel i955X (Glenwood)
+- Added support for nVidia nForce4
 
 Bug Fixes :
-- Fix Dual DDR-I not detected on i915P/G
-- Fix DDR333/400 ratio error on i915P/G
-- Fix i855 & DDR333 not detected
-- Correct Celeron M Dothan not detected
-- Other minor bug fixes
+- Fix a bug on K8 chipset recognition
+- Fix Dual channcel not detected on i865/875
+  (Bug added in V1.50)
+- Some minor bug fixes.

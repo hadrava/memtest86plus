@@ -3,7 +3,7 @@
  * Released under version 2 of the Gnu Public License.
  * By Chris Brady, cbrady@sgi.com
  * ----------------------------------------------------
- * MemTest86+ V1.41 Specific code (GPL V2.0)
+ * MemTest86+ V1.51 Specific code (GPL V2.0)
  * By Samuel DEMEULEMEESTER, sdemeule@memtest.org
  * http://www.x86-secret.com - http://www.memtest.org
  */
@@ -1417,7 +1417,7 @@ static void poll_timings_i875(void) {
 	print_timings_info(cas, rcd, rp, ras);
 
 	// Print 64 or 128 bits mode
-	if (((*ptr2 >> 21)&3) > 1) { 
+	if (((*ptr2 >> 21)&3) > 0) { 
 		cprint(LINE_CPU+5, col2, "/ Dual Channel (128 bits)");
 	} else {
 		cprint(LINE_CPU+5, col2, "/ Single Channel (64 bits)");
@@ -1557,7 +1557,7 @@ static void poll_timings_amd64(void) {
 
 	cprint(LINE_CPU+5, col2 +1, "/ CAS : ");
 	col2 += 9;
-
+	
 	pci_conf_read(0, 24, 2, 0x88, 4, &dramtlr);
 	pci_conf_read(0, 24, 2, 0x90, 4, &dramclr);
 
@@ -1814,6 +1814,7 @@ static struct pci_memory_controller controllers[] = {
 	{ 0x8086, 0x2590, "Intel i915PM/GM", 0, poll_fsb_i925, poll_timings_i925, setup_i925, poll_nothing },
 	{ 0x8086, 0x2584, "Intel i925X/XE",  0, poll_fsb_i925, poll_timings_i925, setup_i925, poll_nothing },
 	{ 0x8086, 0x2770, "Intel i945P/G", 	 0, poll_fsb_i945, poll_timings_i925, setup_i925, poll_nothing },
+	{ 0x8086, 0x2774, "Intel i955X", 		 0, poll_fsb_i945, poll_timings_i925, setup_i925, poll_nothing}
 };
 
 static void print_memory_controller(void)
@@ -1902,16 +1903,16 @@ void find_controller(void)
 	int result;
 	result = pci_conf_read(ctrl.bus, ctrl.dev, ctrl.fn, PCI_VENDOR_ID, 2, &vendor);
 	result = pci_conf_read(ctrl.bus, ctrl.dev, ctrl.fn, PCI_DEVICE_ID, 2, &device);
-	ctrl.index = 0;
-	if (result == 0) {
-		for(i = 1; i < sizeof(controllers)/sizeof(controllers[0]); i++) {
-			if ((controllers[i].vendor == vendor) &&
-				(controllers[i].device == device)) {
-				ctrl.index = i;
-				break;
+	ctrl.index = 0;	
+		if (result == 0) {
+			for(i = 2; i < sizeof(controllers)/sizeof(controllers[0]); i++) {
+				if ((controllers[i].vendor == vendor) && (controllers[i].device == device)) {
+					ctrl.index = i;
+					break;
+				}
 			}
 		}
-	}
+		
 	controllers[ctrl.index].setup_ecc();
 	/* Don't enable ECC polling by default unless it has
 	 * been well tested.
