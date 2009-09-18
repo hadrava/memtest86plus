@@ -256,32 +256,61 @@ void dprint(int y, int x, ulong val, int len, int right)
  */
 void hprint2(int y,int x, unsigned long val, int digits)
 {
+        unsigned long j;
+        int i, idx, flag = 0;
+
+        for (i=0, idx=0; i<8; i++) {
+                j = val >> (28 - (4 * i));
+                j &= 0xf;
+                if (j < 10) {
+                        if (flag || j || i == 7) {
+                                buf[idx++] = j + '0';
+                                flag++;
+                        } else {
+                                buf[idx++] = '0';
+                        }
+                } else {
+                        buf[idx++] = j + 'a' - 10;
+                        flag++;
+                }
+        }
+        if (digits > 8) {
+                digits = 8;
+        }
+        if (flag > digits) {
+                digits = flag;
+        }
+        buf[idx] = 0;
+        cprint(y,x,buf + (idx - digits));
+}
+
+/*
+ * Print a hex number on screen exactly digits long
+ */
+void hprint3(int y,int x, unsigned long val, int digits)
+{
 	unsigned long j;
 	int i, idx, flag = 0;
 
-	for (i=0, idx=0; i<8; i++) {
-		j = val >> (28 - (4 * i));
-		j &= 0xf;
+
+	for (i=0, idx=0; i<digits; i++) {
+		j = 0xf & val;
+		val /= 16;
+
 		if (j < 10) {
 			if (flag || j || i == 7) {
-				buf[idx++] = j + '0';
+				buf[digits - ++idx] = j + '0';
 				flag++;
 			} else {
-				buf[idx++] = '0';
+				buf[digits - ++idx] = '0';
 			}
 		} else {
-			buf[idx++] = j + 'a' - 10;
+			buf[digits - ++idx] = j + 'a' - 10;
 			flag++;
 		}
 	}
-	if (digits > 8) {
-		digits = 8;
-	}
-	if (flag > digits) {
-		digits = flag;
-	}
 	buf[idx] = 0;
-	cprint(y,x,buf + (idx - digits));
+	cprint(y,x,buf);
 }
 
 /*

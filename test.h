@@ -76,6 +76,10 @@ typedef unsigned long ulong;
 #define POP_H	15
 #define POP_X	16
 #define POP_Y	8
+#define POP2_W	74
+#define POP2_H	21
+#define POP2_X	3
+#define POP2_Y	2
 #define NULL	0
 
 /* memspeed operations */
@@ -105,6 +109,7 @@ void ttyprintc(int y, int x, char c);
 void cprint(int y,int x, const char *s);
 void hprint(int y,int x,ulong val);
 void hprint2(int y,int x, ulong val, int len);
+void hprint3(int y,int x, ulong val, int len);
 void xprint(int y,int x,ulong val);
 void aprint(int y,int x,ulong page);
 void dprint(int y,int x,ulong val,int len, int right);
@@ -128,6 +133,9 @@ void scroll(void);
 void popup(void);
 void popdown(void);
 void popclear(void);
+void pop2up(void);
+void pop2down(void);
+void pop2clear(void);
 void get_config(void);
 void get_menu(void);
 void get_printmode(void);
@@ -160,7 +168,8 @@ unsigned long page_of(void *ptr);
 
 #define PRINTMODE_ADDRESSES 0
 #define PRINTMODE_PATTERNS  1
-#define PRINTMODE_NONE      2
+#define PRINTMODE_DMI	    2	
+#define PRINTMODE_NONE      3
 
 #define BADRAM_MAXPATNS 10
 

@@ -10,6 +10,7 @@
 #include "test.h"
 #include "screen_buffer.h"
 #include "controller.h"
+#include "dmi.h"
 #define ITER 20
 
 extern int bail, beepmode;
@@ -18,6 +19,7 @@ extern short e820_nr;
 extern char memsz_mode;
 
 char save[2][POP_H][POP_W];
+char save2[2][POP2_H][POP2_W];
 
 void get_config()
 {
@@ -287,11 +289,13 @@ void get_config()
 			cprint(POP_Y+1, POP_X+2, "Printing Mode:");
 			cprint(POP_Y+3, POP_X+6, "(1) Individual Errors");
 			cprint(POP_Y+4, POP_X+6, "(2) BadRAM Patterns");
-			cprint(POP_Y+5, POP_X+6, "(3) Error Counts Only");
-			cprint(POP_Y+6, POP_X+6, "(4) Beep on Error");
-			cprint(POP_Y+7, POP_X+6, "(0) Cancel");
+			cprint(POP_Y+5, POP_X+6, "(3) DMI Device Name");
+			cprint(POP_Y+6, POP_X+6, "(4) Error Counts Only");
+			cprint(POP_Y+7, POP_X+6, "(5) Beep on Error");
+			cprint(POP_Y+8, POP_X+6, "(6) Show DMI Memory Info");
+			cprint(POP_Y+9, POP_X+6, "(0) Cancel");
 			cprint(POP_Y+3+v->printmode, POP_X+5, ">");
-			if (beepmode) { cprint(POP_Y+6, POP_X+5, ">"); }
+			if (beepmode) { cprint(POP_Y+7, POP_X+5, ">"); }
 			wait_keyup();
 			while (!sflag) {
 				switch(get_key()) {
@@ -308,15 +312,26 @@ void get_config()
 					prt++;
 					break;
 				case 4:
+					/* DMI Devices */
+					v->printmode=PRINTMODE_DMI;
+					sflag++;
+					break;
+			        case 5:
 					/* Error Counts Only */
 					v->printmode=PRINTMODE_NONE;
 					sflag++;
 					break;
-				case 5:
+				case 6:
 					/* Set Beep On Error mode */
 					beepmode = !beepmode;
 					sflag++;
-					break;				
+					break;
+				case 7:
+					/* Display DMI Memory Info */
+					pop2up();
+					print_dmi_info();
+					pop2down();
+					break;
 				case 11:
 				case 57:
 					/* 0/CR - Continue */
@@ -437,6 +452,59 @@ void popclear()
 		}
 	}
         tty_print_region(POP_Y, POP_X, POP_Y+POP_H, POP_X+POP_W);
+}
+
+
+void pop2up()
+{
+	int i, j;
+	char *pp;
+
+	for (i=POP2_Y; i<POP2_Y + POP2_H; i++) { 
+		for (j=POP2_X; j<POP2_X + POP2_W; j++) { 
+			pp = (char *)(SCREEN_ADR + (i * 160) + (j * 2));
+			save2[0][i-POP2_Y][j-POP2_X] = *pp;  /* Save screen */
+			set_scrn_buf(i, j, ' ');
+			*pp = ' ';		/* Clear */
+			pp++;
+			save2[1][i-POP2_Y][j-POP2_X] = *pp;
+			*pp = 0x07;		/* Change Background to black */
+		}
+	}
+        tty_print_region(POP2_Y, POP2_X, POP2_Y+POP2_H, POP2_X+POP2_W);
+}
+
+void pop2down()
+{
+	int i, j;
+	char *pp;
+
+	for (i=POP2_Y; i<POP2_Y + POP2_H; i++) { 
+		for (j=POP2_X; j<POP2_X + POP2_W; j++) { 
+			pp = (char *)(SCREEN_ADR + (i * 160) + (j * 2));
+			*pp = save2[0][i-POP2_Y][j-POP2_X]; /* Restore screen */
+			set_scrn_buf(i, j, save2[0][i-POP2_Y][j-POP2_X]);
+			pp++;
+			*pp = save2[1][i-POP2_Y][j-POP2_X]; /* Restore color */
+		}
+	}
+        tty_print_region(POP2_Y, POP2_X, POP2_Y+POP2_H, POP2_X+POP2_W);
+}
+
+void pop2clear()
+{
+	int i, j;
+	char *pp;
+
+	for (i=POP2_Y; i<POP2_Y + POP2_H; i++) { 
+		for (j=POP2_X; j<POP2_X + POP2_W; j++) { 
+			pp = (char *)(SCREEN_ADR + (i * 160) + (j * 2));
+			*pp = ' ';		/* Clear popup */
+			set_scrn_buf(i, j, ' ');
+			pp++;
+		}
+	}
+        tty_print_region(POP2_Y, POP2_X, POP2_Y+POP2_H, POP2_X+POP2_W);
 }
 
 void clear_screen()

@@ -3,7 +3,7 @@
  * Released under version 2 of the Gnu Public License.
  * By Chris Brady, cbrady@sgi.com
  * ----------------------------------------------------
- * MemTest86+ V1.65 Specific code (GPL V2.0)
+ * MemTest86+ V1.70 Specific code (GPL V2.0)
  * By Samuel DEMEULEMEESTER, sdemeule@memtest.org
  * http://www.x86-secret.com - http://www.memtest.org
  */
@@ -52,7 +52,7 @@ static void display_init(void)
 	for(i=0, pp=(char *)(SCREEN_ADR+1); i<TITLE_WIDTH; i++, pp+=2) {
 		*pp = 0x20;
 	}
-	cprint(0, 0, "      Memtest86  v1.65      ");
+	cprint(0, 0, "      Memtest86  v1.70      ");
 
 	for(i=0, pp=(char *)(SCREEN_ADR+1); i<2; i++, pp+=30) {
 		*pp = 0xA4;
@@ -488,6 +488,10 @@ void cpu_type(void)
 				cprint(LINE_CPU, 0, "Athlon 64 X2");
 				off = 12;				
 				break;
+			case 8:
+				cprint(LINE_CPU, 0, "Turion 64 X2");
+				off = 12;						
+				break;
 			case 4:
 			case 7:
 			case 9:
@@ -598,28 +602,40 @@ void cpu_type(void)
 				case 0x3b:
 					l2_cache = 128;
 					break;
+				case 0x3a:
+					l2_cache = 192;
+					break;
 				case 0x42:
 				case 0x7a:
 				case 0x82:
 				case 0x3c:
 					l2_cache = 256;
 					break;
+				case 0x3d:
+					l2_cache = 384;
+					break;				
 				case 0x43:
 				case 0x7b:
 				case 0x83:
 				case 0x86:
+				case 0x3e:
+				case 0x7f:
 					l2_cache = 512;
 					break;
 				case 0x44:
 				case 0x7c:
 				case 0x84:
 				case 0x87:
+				case 0x78:
 					l2_cache = 1024;
 					break;
 				case 0x45:
 				case 0x7d:
 				case 0x85:
 					l2_cache = 2048;
+					break;
+				case 0x49:
+					l2_cache = 4096;
 					break;
 				}
 			}
@@ -706,12 +722,12 @@ void cpu_type(void)
 					off = 16;
 					break;
 				case 14:
-					cprint(LINE_CPU, 0, "Intel Yonah (65nm)");
-					off = 16;
+					cprint(LINE_CPU, 0, "Intel Core");
+					off = 10;
 					break;				
 				case 15:
-					cprint(LINE_CPU, 0, "Intel Conroe (65nm)");
-					off = 17;
+					cprint(LINE_CPU, 0, "Intel Core 2");
+					off = 12;
 					break;
 				}
 				break;

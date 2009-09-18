@@ -16,7 +16,7 @@ CCFLAGS=-Wall -m32 -march=i486 -Os -fomit-frame-pointer -fno-builtin -ffreestand
 
 AS=as -32
 
-OBJS= head.o reloc.o main.o test.o init.o lib.o patn.o screen_buffer.o config.o linuxbios.o memsize.o pci.o controller.o extra.o random.o 
+OBJS= head.o reloc.o main.o test.o init.o lib.o patn.o screen_buffer.o config.o linuxbios.o memsize.o pci.o controller.o extra.o random.o dmi.o
 
 all: memtest.bin memtest
 
@@ -70,6 +70,8 @@ head.s: head.S
 
 head.o: head.s
 	$(AS) -o $@ $<
+dmi.o:	dmi.c test.h
+	 $(CC) -c $(CCFLAGS) -fPIC dmi.c
 
 makedefs: makedefs.c defs.h
 	$(CC) $(CCFLAGS) makedefs.c -o $@

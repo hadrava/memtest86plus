@@ -4,7 +4,7 @@
  * Released under version 2 of the Gnu Public License.
  * By Chris Brady, cbrady@sgi.com
  * ----------------------------------------------------
- * MemTest86+ V1.60 Specific code (GPL V2.0)
+ * MemTest86+ V1.70 Specific code (GPL V2.0)
  * By Samuel DEMEULEMEESTER, sdemeule@memtest.org
  * http://www.x86-secret.com - http://www.memtest.org
  */
@@ -12,6 +12,7 @@
 #include "test.h"
 #include "config.h"
 #include <sys/io.h>
+#include "dmi.h"
 
 
 extern int segs, bail, beepmode;
@@ -1348,7 +1349,7 @@ void bit_fade()
 void error(ulong *adr, ulong good, ulong bad)
 {
 	ulong xor;
-	int patnchg;
+	int patnchg,baddevchg;
 
 	xor = good ^ bad;
 #ifdef USB_WAR
@@ -1364,8 +1365,10 @@ void error(ulong *adr, ulong good, ulong bad)
 
 	/* Process the address in the pattern administration */
 	patnchg=insertaddress ((ulong) adr);
+	baddevchg=add_dmi_err((ulong) adr );
 
 	update_err_counts();
+
 	if (v->printmode == PRINTMODE_ADDRESSES) {
 
 		/* Don't display duplicate errors */
@@ -1382,6 +1385,10 @@ void error(ulong *adr, ulong good, ulong bad)
 		if (patnchg) {
 			printpatn();
 		}
+	} else if (v->printmode == PRINTMODE_DMI) {
+	    print_err_counts();
+	    if (baddevchg==1)
+		print_dmi_err();
 	}
 }
 
@@ -1425,10 +1432,11 @@ void ad_err1(ulong *adr1, ulong *adr2, ulong good, ulong bad)
  */
 void ad_err2(ulong *adr, ulong bad)
 {
-	int patnchg;
+	int patnchg,baddevchg;
 
 	/* Process the address in the pattern administration */
 	patnchg=insertaddress ((ulong) adr);
+	baddevchg=add_dmi_err((ulong) adr );
 
 	update_err_counts();
 	if (v->printmode == PRINTMODE_ADDRESSES) {
@@ -1438,6 +1446,10 @@ void ad_err2(ulong *adr, ulong bad)
 		if (patnchg) {
 			printpatn();
 		}
+	} else if (v->printmode == PRINTMODE_DMI) {
+	    print_err_counts();
+	    if (baddevchg==1)
+		print_dmi_err();
 	}
 }
 void print_hdr(void)

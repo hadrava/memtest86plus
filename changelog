@@ -1,19 +1,25 @@
-Memtest86+ V1.65
+Memtest86+ V.70 changelog
+-------------------------
 
-Enhancements :
-	- Add support for Intel Conroe/Merom/Woodcrest
-  - Add support for Intel Yonah (0.65nm)
-	- Add support for Intel Presler (0.65nm)
-	- Add support for B-Step Smithfield
-	- Add support for ALi/ULi 1689 & 1695
-	- Add support for ATi RS482
+- Added new DMI polling feature (Thanks to Joachim D.)
+- Added Support for Core/Core2 Solo/Duo/Quad CPU
+- Added Support for AMD K8 with DDR2 Memory
+- Added Support for Intel CPU with 192/384 KB L2 Cache
+- Added Support for FB-DIMM based memory (DMI)
+- Added Detection for ALI CyberAladdin-T (M1644)
+- Added Detection for Turion 64 X2
+- Added Detection for AMD K8 with unknown chipsets
+- Added Support for ATi Radeon xPress 3200
+- Added Support for Intel i975X
+- Added Support for Intel Q965/P965
+- Added Support for Intel Q963/Q965
 
-Bug Fixes :
-  - Solve some P4 detected as Pentium D
-  - Solve a bug with RAS detect on i955X
-  - Solve a bug with K5 L1 detection size
-  - Cosmetic : Mhz changed to MHz
-	- Rewrite some code to avoid warning with gcc 4
-	- Solve Fedora bugzilla Bug #162373
+Thanks to Jesper Ekhall for betatesting.
 
----------------------------------
+
+
+
+
+
+
+
