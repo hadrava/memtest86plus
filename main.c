@@ -2,27 +2,32 @@
  *
  * Released under version 2 of the Gnu Public License.
  * By Chris Brady
+ * ----------------------------------------------------
+ * MemTest86+ V1.50 Specific code (GPL V2.0)
+ * By Samuel DEMEULEMEESTER, sdemeule@memtest.org
+ * http://www.x86-secret.com - http://www.memtest.org
  */
 
 #include "test.h"
 #include "defs.h"
 #undef TEST_TIMES
-#define DEFTESTS 9
+#define DEFTESTS 11
 
 extern void bzero();
 
 const struct tseq tseq[] = {
-	{0, 5, 3, 0, 0,    "[Address test, walking ones, no cache]"},
-	{1, 6, 3, 2, 0,    "[Address test, own address]           "},
-	{1, 0, 3, 14, 0,   "[Moving inversions, ones & zeros]     "},
-	{1, 1, 2, 80, 0,   "[Moving inversions, 8 bit pattern]    "},
-	{1, 10, 60, 300, 0,"[Moving inversions, random pattern]   "},
-	{1, 7, 64, 66, 0,  "[Block move, 64 moves]                "},
-	{1, 2, 2, 320, 0,  "[Moving inversions, 32 bit pattern]   "},
-	{1, 9, 40, 120, 0, "[Random number sequence]              "},
-	{1, 3, 4, 240, 0,  "[Modulo 20, ones & zeros]             "},
-	{1, 8, 1, 2, 0,    "[Bit fade test, 90 min, 2 patterns]   "},
-	{0, 0, 0, 0, 0, NULL}
+	{1,  5,  3,   0, 0, "[Address test, walking ones]          "},
+	{1,  6,  3,   2, 0, "[Address test, own address]           "},
+	{1,  0,  3,  14, 0, "[Moving inversions, ones & zeros]     "},
+	{1,  1,  2,  80, 0, "[Moving inversions, 8 bit pattern]    "},
+	{1, 10, 60, 300, 0, "[Moving inversions, random pattern]   "},
+	{1,  7, 64,  66, 0, "[Block move, 64 moves]                "},
+	{1,  2,  2, 320, 0, "[Moving inversions, 32 bit pattern]   "},
+	{1,  9, 40, 120, 0, "[Random number sequence]              "},
+	{1,  3,  4, 240, 0, "[Modulo 20, ones & zeros]             "},
+	{1,  8,  1,   2, 0, "[Bit fade test, 90 min, 2 patterns]   "},
+	{0,  4,  3,   2, 0, "[[Moving inversions, 0 & 1, uncached] "},
+	{0,  0,  0,   0, 0, NULL}
 };
 
 char firsttime = 0;
@@ -37,7 +42,7 @@ int test_ticks;
 int nticks;
 
 static int window = 0;
-static struct pmap windows[] = 
+static struct pmap windows[] =
 {
 	{ 0/* Written at startup */, 0x100000 },
 	{ 0, RES_START >> 12 },
@@ -117,7 +122,7 @@ static void run_at(unsigned long addr)
 
 	start = (unsigned long) &_start;
 	len = _end - _start;
-	if (	((start < addr) && ((start + len) >= addr)) || 
+	if (	((start < addr) && ((start + len) >= addr)) ||
 		((addr < start) &&  ((addr + len) >= start))) {
 		/* Handle overlap by doing an extra relocation */
 		if (addr + len < HIGH_TEST_ADR) {
@@ -132,7 +137,7 @@ static void run_at(unsigned long addr)
 
 void do_test(void)
 {
-	int i = 0, j = 0;
+	int i = 0;
 	unsigned long chunks;
 	unsigned long lo, hi;
 
@@ -148,7 +153,7 @@ void do_test(void)
 		if ((ulong)&_start != LOW_TEST_ADR) {
 			restart();
 		}
-		windows[0].start = 
+		windows[0].start =
 			( LOW_TEST_ADR + (_end - _start) + 4095) >> 12;
 		init();
 		firsttime = 1;
@@ -172,13 +177,13 @@ void do_test(void)
 	cprint(LINE_RANGE, COL_MID+14, " - ");
 	aprint(LINE_RANGE, COL_MID+17, hi);
 	aprint(LINE_RANGE, COL_MID+23, v->selected_pages);
-	cprint(LINE_RANGE, COL_MID+28, 
+	cprint(LINE_RANGE, COL_MID+28,
 		((ulong)&_start == LOW_TEST_ADR)?"          ":" Relocated");
-	
+
 #ifdef TEST_TIMES
 	{
 		ulong l, h, t;
-		
+
 		asm __volatile__ (
 			"rdtsc\n\t"
 			"subl %%ebx,%%eax\n\t"
@@ -219,7 +224,6 @@ void do_test(void)
 		len = v->map[i].end - v->map[i].start;
 		chunks += (len + SPINSZ -1)/SPINSZ;
 	}
-
 	test_ticks = find_ticks_for_test(chunks, v->test);
 	nticks = 0;
 	v->tptr = 0;
@@ -228,40 +232,32 @@ void do_test(void)
 
 	/* Now do the testing according to the selected pattern */
 	case 0:	/* Moving inversions, all ones and zeros */
-		p1 = 0;
-		p2 = ~p1;
-		movinv1(tseq[v->test].iter,p1,p2);
-		BAILOUT;
-	
-		/* Switch patterns */
-		p2 = p1;
-		p1 = ~p2;
-		movinv1(tseq[v->test].iter,p1,p2);
-		BAILOUT;
-		break;
-		
 	case 1: /* Moving inversions, 8 bit wide walking ones and zeros. */
-		p0 = 0x80;
-		for (i=0; i<8; i++, p0=p0>>1) {
-			p1 = p0 | (p0<<8) | (p0<<16) | (p0<<24);
-			p2 = ~p1;
-			movinv1(tseq[v->test].iter,p1,p2);
-			BAILOUT;
+	case 4:
 	
+		if (tseq[v->test].pat == 1)
+			p0 = 0x80808080;
+		else
+			p0 = 0;
+
+		for ( ; ; ) {
+			movinv1(tseq[v->test].iter,p0,~p0);
+			BAILOUT;
+
 			/* Switch patterns */
-			p2 = p1;
-			p1 = ~p2;
-			movinv1(tseq[v->test].iter,p1,p2);
+			movinv1(tseq[v->test].iter,~p0,p0);
 			BAILOUT
+			if ( !((unsigned char)(p0 >>= 1) & 0x7F) )
+				break;
 		}
 		break;
+
 
 	case 2: /* Moving inversions, 32 bit shifting pattern, very long */
 		for (i=0, p1=1; p1; p1=p1<<1, i++) {
 			movinv32(tseq[v->test].iter,p1, 1, 0x80000000, 0, i);
 			BAILOUT
-			movinv32(tseq[v->test].iter,~p1, 0xfffffffe,
-				0x7fffffff, 1, i);
+			movinv32(tseq[v->test].iter,~p1, 0xfffffffe, 0x7fffffff, 1, i);
 			BAILOUT
 		}
 		break;
@@ -281,23 +277,6 @@ void do_test(void)
 		}
 		break;
 
-	case 4: /* Modulo X check, 8 bit pattern */
-		p0 = 0x80;
-		for (j=0; j<8; j++, p0=p0>>1) {
-			p1 = p0 | (p0<<8) | (p0<<16) | (p0<<24);
-			for (i=0; i<MOD_SZ; i++) {
-				p2 = ~p1;
-				modtst(i, tseq[v->test].iter, p1, p2);
-				BAILOUT
-
-				/* Switch patterns */
-				p2 = p1;
-				p1 = ~p2;
-				modtst(i, tseq[v->test].iter, p1, p2);
-				BAILOUT
-			}
-		}
-		break;
 	case 5: /* Address test, walking ones */
 		addr_tst1();
 		BAILOUT;
@@ -312,12 +291,14 @@ void do_test(void)
 		block_move(tseq[v->test].iter);
 		BAILOUT;
 		break;
+
 	case 8: /* Bit fade test */
 		if (window == 0 ) {
 			bit_fade();
 		}
 		BAILOUT;
 		break;
+		
 	case 9: /* Random Data Sequence */
 		for (i=0; i < tseq[v->test].iter; i++) {
 			movinvr();
@@ -352,15 +333,15 @@ void do_test(void)
 		 *   The lower limit is less than START_ADR
 		 * - There is more than 1 meg of memory
 		 */
-		if (windows[window].start < 
+		if (windows[window].start <
 			(LOW_TEST_ADR + (_end - _start)) >> 12) {
-			if (v->pmap[v->msegs-1].end > 
+			if (v->pmap[v->msegs-1].end >
 				(((HIGH_TEST_ADR + (_end - _start)) >> 12) +1)) {
 				/* We need the high copy and we have enough
 				 * memory so use it.
 				 */
 				run_at(HIGH_TEST_ADR);
-			} else { 
+			} else {
 				/* We can't use this window so skip it */
 				goto skip_window;
 			}
@@ -376,7 +357,7 @@ void do_test(void)
 	skip_test:
 		v->test++;
 	bail_test:
-		/* Revert to the default mapping 
+		/* Revert to the default mapping
 		 * and enable the cache.
 		 */
 		paging_off();
@@ -385,7 +366,7 @@ void do_test(void)
 		window = 0;
 		cprint(LINE_PAT, COL_PAT-3, "   ");
 		/* If this was the last test then we finished a pass */
-		if (v->test >= DEFTESTS || v->testsel >= 0) {
+		if (v->test >= 9 || v->testsel >= 0) {
 			v->pass++;
 			dprint(LINE_INFO, COL_PASS, v->pass, 5, 0);
 			v->test = 0;
@@ -394,7 +375,7 @@ void do_test(void)
 			cprint(0, COL_MID+8,
 				"                                         ");
 		}
-		
+
 		/* We always start a pass with the low copy */
 		run_at(LOW_TEST_ADR);
 	}
@@ -413,10 +394,10 @@ void restart()
 	v->ecount = 0;
 	v->ecc_ecount = 0;
 
-        /* Clear the screen */
-        for(i=0, pp=(char *)(SCREEN_ADR+0); i<80*24; i++, pp+=2) {
-                *pp = ' ';
-        }
+	/* Clear the screen */
+	for(i=0, pp=(char *)(SCREEN_ADR+0); i<80*24; i++, pp+=2) {
+		*pp = ' ';
+	}
 	run_at(LOW_TEST_ADR);
 }
 
@@ -447,7 +428,7 @@ void find_ticks(void)
 			if (i != v->testsel) {
 				continue;
 			}
-                }
+		}
 		v->pass_ticks += find_ticks_for_test(chunks, i);
 	}
 }
@@ -527,11 +508,11 @@ static void compute_segments(int win)
 
 		cprint(LINE_SCROLL+(2*i+1), 44, "i=");
 		hprint(LINE_SCROLL+(2*i+1), 46, i);
-		
-		cprint(LINE_SCROLL+(2*i+2), 0, 
+
+		cprint(LINE_SCROLL+(2*i+2), 0,
 			"                                        "
 			"                                        ");
-		cprint(LINE_SCROLL+(2*i+3), 0, 
+		cprint(LINE_SCROLL+(2*i+3), 0,
 			"                                        "
 			"                                        ");
 #endif

@@ -12,8 +12,8 @@
 ; The good thing is that you get a single file which can be
 ; compressed, for example with http://upx.sf.net/ (UPX).
 
-%define fullsize (95352 + buffer - exeh)
-	; 95352 is the size of memtest86+ V1.40, adjust as needed!
+%define fullsize (94472 + buffer - exeh)
+	; 94472 is the size of memtest86+ V1.50, adjust as needed!
 
 %define stacksize 2048
 %define stackpara ((stacksize + 15) / 16)
@@ -50,7 +50,7 @@ start:	; entry point	; if you use obj + linker, use "..start:"
 	mov ds,ax	; ***
 	mov es,ax	; ***
 
-		; test if we have 386 or better: 
+		; test if we have 386 or better:
 	pushf   ; save flags
 	xor ax,ax
 	push ax

@@ -2,13 +2,13 @@
  *
  * Released under version 2 of the Gnu Public License.
  * By Chris Brady, cbrady@sgi.com
- */ 
+ */
 
 #define SETUPSECS	4		/* Number of setup sectors */
 
 /*
  * Caution!! There is magic in the build process.  Read
- * README.build-process before you change anything.  
+ * README.build-process before you change anything.
  * Unlike earlier versions all of the settings are in defs.h
  * so the build process should be more robust.
  */

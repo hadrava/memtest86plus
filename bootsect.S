@@ -5,7 +5,7 @@
  * itself out of the way to address 0x90000, and jumps there.
  *
  * It then loads 'setup' directly after itself (0x90200), and the system
- * at 0x10000, using BIOS interrupts. 
+ * at 0x10000, using BIOS interrupts.
  *
  * The loader has been made as simple as possible, and continuos
  * read errors will result in a unbreakable loop. Reboot by hand. It
@@ -17,7 +17,7 @@
 #include "defs.h"
 
 ROOT_DEV = 0
-	
+
 .code16
 .section ".bootsect", "ax", @progbits
 _boot:
@@ -38,7 +38,7 @@ _main:
 	movsw
 	ljmp	$INITSEG, $go - _boot
 
-go:	
+go:
 	movw	%cs, %ax
 	movw	$(0x4000-12), %dx	# 0x4000 is arbitrary value >= length of
 					# bootsect + length of setup + room for stack
@@ -54,9 +54,9 @@ go:
 	movw	%ax, %es
 	movw	%ax, %ss		# put stack at INITSEG:0x4000-12.
 	movw	%dx, %sp
-	
+
 /*
- *	Many BIOS's default disk parameter tables will not 
+ *	Many BIOS's default disk parameter tables will not
  *	recognize multi-sector reads beyond the maximum sector number
  *	specified in the default diskette parameter tables - this may
  *	mean 7 sectors in some cases.
@@ -64,7 +64,7 @@ go:
  *	Since single sector reads are slow and out of the question,
  *	we must take care of this by creating new parameter tables
  *	(for the first disk) in RAM.  We will set the maximum sector
- *	count to 18 - the most we will encounter on an HD 1.44.  
+ *	count to 18 - the most we will encounter on an HD 1.44.
  *
  *	High doesn't hurt.  Low does.
  *
@@ -92,10 +92,10 @@ go:
 	movw	%ax, %fs
 	movw	%ax, %gs
 
-	xorb	%ah, %ah		# reset FDC 
+	xorb	%ah, %ah		# reset FDC
 	xorb	%dl, %dl
 	int	$0x13
-	
+
 # load the setup-sectors directly after the bootblock.
 # Note that 'es' is already set up.
 
@@ -112,7 +112,7 @@ load_setup:
 	call	print_nl
 	movw	%sp, %bp
 	call	print_hex
-	popw	%ax	
+	popw	%ax
 
 	xorb	%dl, %dl		# reset FDC
 	xorb	%ah, %ah
@@ -140,7 +140,7 @@ ok_load_setup:
 	int	$0x13
 	jnc	got_sectors
 	movb	$0x09, %cl
-	
+
 got_sectors:
 	movw	%cx, %cs:sectors - _boot
 	movw	$INITSEG, %ax
@@ -151,13 +151,13 @@ got_sectors:
 	movb	$0x03, %ah		# read cursor pos
 	xorb	%bh, %bh
 	int	$0x10
-	
+
 	movw	$9, %cx
 	movw	$0x0007, %bx		# page 0, attribute 7 (normal)
 	movw	$msg1 - _boot, %bp
 	movw	$0x1301, %ax		# write string, move cursor
 	int	$0x10
-	
+
 # ok, we've written the message, now
 # we want to load the system (at 0x10000)
 
@@ -186,7 +186,7 @@ track:	.word 0			# current track
 read_it:
 	movw	%es, %ax
 	testw	$0x0fff, %ax
-die:	
+die:
 	jne	die		# es must be at 64kB boundary
 	xorw	%bx,%bx		# bx is starting address within segment
 rp_read:
@@ -229,7 +229,7 @@ ok3_read:
 	movw	%ax, %es
 	xorw	%bx, %bx
 	jmp	rp_read
-	
+
 read_track:
 	pusha
 	pusha
@@ -237,7 +237,7 @@ read_track:
 	movw	$7, %bx
 	int	$0x10
 	popa
-	
+
 	movw	track - _boot, %dx
 	movw	sread - _boot, %cx
 	incw	%cx
@@ -246,7 +246,7 @@ read_track:
 	movb	%dl, %dh
 	andw	$0x0100, %dx
 	movb	$2, %ah
-	
+
 	pushw	%dx				# save for error dump
 	pushw	%cx
 	pushw	%bx
@@ -258,23 +258,23 @@ read_track:
 	popa
 	ret
 
-bad_rt:	
+bad_rt:
 	pushw	%ax				# save error code
 	call	print_all			# ah = error, al = read
-	
+
 	xorb	%ah, %ah
 	xorb	%dl, %dl
 	int	$0x13
 
 	addw	$10, %sp
-	popa	
+	popa
 	jmp read_track
 
 /*
- *	print_all is for debugging purposes.  
+ *	print_all is for debugging purposes.
  *	It will print out all of the registers.  The assumption is that this is
  *	called from a routine, with a stack frame like
- *	dx 
+ *	dx
  *	cx
  *	bx
  *	ax
@@ -282,7 +282,7 @@ bad_rt:
  *	ret <- sp
  *
 */
- 
+
 print_all:
 	movw	$5, %cx		# error code + 4 registers
 	movw	%sp, %bp
@@ -299,7 +299,7 @@ print_loop:
 	int	$0x10
 	movb	$'X', %al
 	int	$0x10
-	movb	$':', %al	
+	movb	$':', %al
 	int	$0x10
 
 no_reg:
@@ -308,18 +308,18 @@ no_reg:
 	popw	%cx
 	loop	print_loop
 	ret
-	
+
 print_nl:
 	movw	$0xe0d, %ax	# CR
 	int	$0x10
 	movb	$0x0a, %al	# LF
 	int	$0x10
 	ret
-	
+
 /*
  *	print_hex is for debugging purposes, and prints the word
  *	pointed to by ss:bp in hexadecmial.
-*/
+ */
 
 print_hex:
 	movw	$4, %cx		# 4 hex digits
@@ -334,7 +334,7 @@ print_digit:
 	cmpb	$'9', %al	# check for overflow
 	jbe	good_digit
 	addb	$('A' - '0' - 10), %al
-	
+
 good_digit:
 	int	$0x10
 	loop	print_digit

@@ -32,7 +32,7 @@ int pci_conf_read(unsigned bus, unsigned dev, unsigned fn, unsigned reg, unsigne
 	case PCI_CONF_TYPE_2:
 		outb(0xF0 | (fn << 1), 0xCF8);
 		outb(bus, 0xCFA);
-		
+
 		switch(len) {
 		case 1:  *value = inb(PCI_CONF2_ADDRESS(dev, reg)); result = 0; break;
 		case 2:  *value = inw(PCI_CONF2_ADDRESS(dev, reg)); result = 0; break;
@@ -64,7 +64,7 @@ int pci_conf_write(unsigned bus, unsigned dev, unsigned fn, unsigned reg, unsign
 	case PCI_CONF_TYPE_2:
 		outb(0xF0 | (fn << 1), 0xCF8);
 		outb(bus, 0xCFA);
-		
+
 		switch(len) {
 		case 1: outb(value, PCI_CONF2_ADDRESS(dev, reg)); result = 0; break;
 		case 2: outw(value, PCI_CONF2_ADDRESS(dev, reg)); result = 0; break;
@@ -97,18 +97,21 @@ static int pci_sanity_check(void)
 
 static int pci_check_direct(void)
 {
-	unsigned int tmp;
+	unsigned char tmpCFB;
+	unsigned int  tmpCF8;
 
 	/* Check if configuration type 1 works. */
 	pci_conf_type = PCI_CONF_TYPE_1;
+	tmpCFB = inb(0xCFB);
 	outb(0x01, 0xCFB);
-	tmp = inl(0xCF8);
+	tmpCF8 = inl(0xCF8);
 	outl(0x80000000, 0xCF8);
 	if ((inl(0xCF8) == 0x80000000) && (pci_sanity_check() == 0)) {
-		outl(tmp, 0xCF8);
+		outl(tmpCF8, 0xCF8);
+		outb(tmpCFB, 0xCFB);
 		return 0;
 	}
-	outl(tmp, 0xCF8);
+	outl(tmpCF8, 0xCF8);
 
 	/* Check if configuration type 2 works. */
 	pci_conf_type = PCI_CONF_TYPE_2;
@@ -116,8 +119,11 @@ static int pci_check_direct(void)
 	outb(0x00, 0xCF8);
 	outb(0x00, 0xCFA);
 	if (inb(0xCF8) == 0x00 && inb(0xCFA) == 0x00 && (pci_sanity_check() == 0)) {
+		outb(tmpCFB, 0xCFB);
 		return 0;
 	}
+
+	outb(tmpCFB, 0xCFB);
 
 	/* Nothing worked return an error */
 	pci_conf_type = PCI_CONF_TYPE_NONE;

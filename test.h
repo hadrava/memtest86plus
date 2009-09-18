@@ -96,7 +96,7 @@ int query_pcbios(void);
 int insertaddress(ulong);
 void printpatn(void);
 void printpatn(void);
-void itoa(char s[], int n); 
+void itoa(char s[], int n);
 void reverse(char *p);
 void serial_echo_init(void);
 void serial_echo_print(const char *s);
@@ -139,7 +139,7 @@ void beep(unsigned int frequency);
 void block_move(int iter);
 void find_ticks(void);
 void print_err(ulong *adr, ulong good, ulong bad, ulong xor);
-void print_ecc_err(ulong page, ulong offset, int corrected, 
+void print_ecc_err(ulong page, ulong offset, int corrected,
 	unsigned short syndrome, int channel);
 void mem_size(void);
 void adj_mem(void);
@@ -185,8 +185,8 @@ static inline void cache_on(void)
         asm(
 		"push %eax\n\t"
 		"movl %cr0,%eax\n\t"
-                "andl $0x9fffffff,%eax\n\t" /* Clear CD and NW */ 
-                "movl %eax,%cr0\n\t"
+		"andl $0x9fffffff,%eax\n\t" /* Clear CD and NW */
+		"movl %eax,%cr0\n\t"
 		"pop  %eax\n\t");
 }
 
@@ -194,10 +194,10 @@ static inline void reboot(void)
 {
         asm(
 		"movl %cr0,%eax\n\t"
-       		"andl  $0x00000011,%eax\n\t"
-       		"orl   $0x60000000,%eax\n\t"
-       		"movl  %eax,%cr0\n\t"
-       		"movl  %eax,%cr3\n\t"
+		"andl  $0x00000011,%eax\n\t"
+		"orl   $0x60000000,%eax\n\t"
+		"movl  %eax,%cr0\n\t"
+		"movl  %eax,%cr3\n\t"
 		"movl  %cr0,%ebx\n\t"
 		"andl  $0x60000000,%ebx\n\t"
 		"jz    f\n\t"
@@ -243,6 +243,7 @@ struct cpu_ident {
 	char vend_id[12];
 	unsigned char cache_info[16];
 	long pwrcap;
+	long ext;
 };
 #define X86_FEATURE_PAE		(0*32+ 6) /* Physical Address Extensions */
 
@@ -266,7 +267,7 @@ struct vars {
 	int total_ticks;
 	int pptr;
 	int tptr;
-	int beepmode;	
+	int beepmode;
 	struct pmap pmap[MAX_MEM_SEGMENTS];
 	struct mmap map[MAX_MEM_SEGMENTS];
 	ulong plim_lower;
@@ -276,7 +277,7 @@ struct vars {
 	ulong startl;
 	ulong snaph;
 	ulong snapl;
-	ulong extclock;	
+	ulong extclock;
 	int printmode;
 	int numpatn;
 	struct pair patn [BADRAM_MAXPATNS];

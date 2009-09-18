@@ -13,7 +13,7 @@
 .section ".setup", "ax", @progbits
 .globl start
 start:
-# ok, the read went well 
+# ok, the read went well
 # now we want to move to protected mode ...
 
 
@@ -31,10 +31,10 @@ start:
 # that was painless, now we enable A20
 
 	call    empty_8042
-	
+
 	movb	$0xD1, %al	# command write
 	outb	%al, $0x64
-	call    empty_8042	
+	call    empty_8042
 
 	movb	$0xDF, %al	# A20 on
 	outb	%al, $0x60
@@ -72,7 +72,7 @@ empty_8042:
 	call	delay
 	inb	$0x60, %al	# read it
 	jmp	empty_8042
-	
+
 no_output:
 	testb	$2, %al		# is input buffer full?
 	jnz	empty_8042	# yes - loop

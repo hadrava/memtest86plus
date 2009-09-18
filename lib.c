@@ -16,8 +16,8 @@ short serial_cons = SERIAL_CONSOLE_DEFAULT;
 char buf[18];
 
 struct ascii_map_str {
-        int ascii;
-        int keycode;
+	int ascii;
+	int keycode;
 };
 
 char *codes[] = {
@@ -93,7 +93,7 @@ void *memmove(void *dest, const void *src, ulong n)
  * Scroll the error message area of the screen as needed
  * Starts at line LINE_SCROLL and ends at line 23
  */
-void scroll(void) 
+void scroll(void)
 {
 	int i, j;
 	char *s, tmp;
@@ -106,23 +106,23 @@ void scroll(void)
 		while (slock) {
 			check_input();
 		}
-	        for (i=LINE_SCROLL; i<23; i++) {
+		for (i=LINE_SCROLL; i<23; i++) {
 			s = (char *)(SCREEN_ADR + ((i+1) * 160));
 			for (j=0; j<160; j+=2, s+=2) {
 				*(s-160) = *s;
-                                tmp = get_scrn_buf(i+1, j/2);
-                                set_scrn_buf(i, j/2, tmp);
+				tmp = get_scrn_buf(i+1, j/2);
+				set_scrn_buf(i, j/2, tmp);
 			}
 		}
 		/* Clear the newly opened line */
 		s = (char *)(SCREEN_ADR + (23 * 160));
 		for (j=0; j<80; j++) {
 			*s = ' ';
-                        set_scrn_buf(23, j, ' ');
+			set_scrn_buf(23, j, ' ');
 			s += 2;
 		}
-                tty_print_region(LINE_SCROLL, 0, 23, 79);
-        }
+		tty_print_region(LINE_SCROLL, 0, 23, 79);
+	}
 }
 
 /*
@@ -137,37 +137,37 @@ void cprint(int y, int x, const char *text)
 	for (i=0; text[i]; i++) {
 		*dptr = text[i];
 		dptr += 2;
-        }
-        tty_print_line(y, x, text);
+	}
+	tty_print_line(y, x, text);
 }
 
-void itoa(char s[], int n) 
+void itoa(char s[], int n)
 {
-  int i, sign;
+	int i, sign;
 
-  if((sign = n) < 0)
-    n = -n;
-  i=0;
-  do {
-    s[i++] = n % 10 + '0';
-  } while ((n /= 10) > 0);
-  if(sign < 0)
-    s[i++] = '-';
-  s[i] = '\0';
-  reverse(s);
+	if((sign = n) < 0)
+		n = -n;
+	i=0;
+	do {
+		s[i++] = n % 10 + '0';
+	} while ((n /= 10) > 0);
+	if(sign < 0)
+		s[i++] = '-';
+	s[i] = '\0';
+	reverse(s);
 }
 
 void reverse(char s[])
 {
-  int c, i, j;
-  for(j = 0; s[j] != 0; j++)
-	  ;
+	int c, i, j;
+	for(j = 0; s[j] != 0; j++)
+		;
 
-  for(i=0, j = j - 1; i < j; i++, j--) {
-    c = s[i];
-    s[i] = s[j];
-    s[j] = c;
-  }
+	for(i=0, j = j - 1; i < j; i++, j--) {
+		c = s[i];
+		s[i] = s[j];
+		s[j] = c;
+	}
 }
 
 /*
@@ -233,16 +233,16 @@ void dprint(int y, int x, ulong val, int len, int right)
 					continue;
 				}
 				if (k == 0 && flag == 0) {
-					continue;				
+					continue;
 				}
 				buf[i++] = k + '0';
 				val -= k * j;
 			} else {
-                                if (flag == 0 &&  i < len-1) {
-                                        buf[i++] = '0';
-                                } else {
-                                        buf[i++] = ' ';
-                                }
+				if (flag == 0 &&  i < len-1) {
+					buf[i++] = '0';
+				} else {
+					buf[i++] = ' ';
+				}
 			}
 			flag++;
 		}
@@ -259,12 +259,12 @@ void hprint2(int y,int x, unsigned long val, int digits)
 	unsigned long j;
 	int i, idx, flag = 0;
 
-        for (i=0, idx=0; i<8; i++) {
-                j = val >> (28 - (4 * i));
+	for (i=0, idx=0; i<8; i++) {
+		j = val >> (28 - (4 * i));
 		j &= 0xf;
 		if (j < 10) {
 			if (flag || j || i == 7) {
-		                buf[idx++] = j + '0';
+				buf[idx++] = j + '0';
 				flag++;
 			} else {
 				buf[idx++] = '0';
@@ -273,14 +273,14 @@ void hprint2(int y,int x, unsigned long val, int digits)
 			buf[idx++] = j + 'a' - 10;
 			flag++;
 		}
-        }
+	}
 	if (digits > 8) {
 		digits = 8;
 	}
 	if (flag > digits) {
 		digits = flag;
 	}
-        buf[idx] = 0;
+	buf[idx] = 0;
 	cprint(y,x,buf + (idx - digits));
 }
 
@@ -297,7 +297,7 @@ void hprint(int y, int x, unsigned long val)
  */
 void xprint(int y,int x, ulong val)
 {
-        ulong j;
+	ulong j;
 
 	j = (val & 0xffc00000) >> 20;
 	dprint(y, x, j, 4, 0);
@@ -308,7 +308,7 @@ void xprint(int y,int x, ulong val)
 	j = val & 0x3ff;
 	dprint(y, x+10, j, 4, 0);
 }
-	
+
 /* Handle an interrupt */
 void inter(struct eregs *trap_regs)
 {
@@ -330,10 +330,10 @@ void inter(struct eregs *trap_regs)
 #endif
 
 	/* clear scrolling region */
-        pp=(char *)(SCREEN_ADR+(2*80*(LINE_SCROLL-2)));
-        for(i=0; i<2*80*(24-LINE_SCROLL-2); i++, pp+=2) {
-                *pp = ' ';
-        }
+	pp=(char *)(SCREEN_ADR+(2*80*(LINE_SCROLL-2)));
+	for(i=0; i<2*80*(24-LINE_SCROLL-2); i++, pp+=2) {
+		*pp = ' ';
+	}
 	line = LINE_SCROLL-2;
 
 	cprint(line, 0, "Unexpected Interrupt - Halting");
@@ -393,7 +393,7 @@ void inter(struct eregs *trap_regs)
 	}
 }
 
-void set_cache(int val) 
+void set_cache(int val)
 {
 	extern struct cpu_ident cpu_id;
 	/* 386's don't have a cache */
@@ -403,7 +403,7 @@ void set_cache(int val)
 	}
 	switch(val) {
 	case 0:
-		cache_off();	
+		cache_off();
 		cprint(LINE_INFO, COL_CACHE, "off");
 		break;
 	case 1:
@@ -415,7 +415,7 @@ void set_cache(int val)
 
 int get_key() {
 	int c;
-	
+
 	c = inb(0x64);
 	if ((c & 1) == 0) {
 		if (serial_cons) {
@@ -442,7 +442,7 @@ void check_input(void)
 
 	if ((c = get_key())) {
 		switch(c & 0x7f) {
-		case 1:	
+		case 1:
 			/* "ESC" key was pressed, bail out.  */
 			cprint(LINE_RANGE, COL_MID+23, "Halting... ");
 
@@ -496,7 +496,7 @@ ulong getval(int x, int y, int result_shift)
 		buf[i] = ' ';
 	}
 	buf[sizeof(buf)/sizeof(buf[0]) -1] = '\0';
-	
+
 	wait_keyup();
 	done = 0;
 	n = 0;
@@ -550,7 +550,7 @@ ulong getval(int x, int y, int result_shift)
 		}
 		/* Don't allow anything to be entered after a suffix */
 		if (n > 0 && (
-			(buf[n-1] == 'p') || (buf[n-1] == 'g') || 
+			(buf[n-1] == 'p') || (buf[n-1] == 'g') ||
 			(buf[n-1] == 'm') || (buf[n-1] == 'k'))) {
 			buf[n] = ' ';
 		}
@@ -618,7 +618,7 @@ void ttyprint(int y, int x, const char *p)
 {
 	static char sx[3];
 	static char sy[3];
-	
+
 	sx[0]='\0';
 	sy[0]='\0';
 	x++; y++;
@@ -645,7 +645,7 @@ void ttyprint(int y, int x, const char *p)
 void serial_echo_init(void)
 {
 	int comstat, hi, lo;
-	
+
 	/* read the Divisor Latch */
 	comstat = serial_echo_inb(UART_LCR);
 	serial_echo_outb(comstat | UART_LCR_DLAB, UART_LCR);
@@ -668,7 +668,7 @@ void serial_echo_init(void)
 	comstat = serial_echo_inb(UART_RX);	/* COM? RBR */
 	serial_echo_outb(0x00, UART_IER); /* Disable all interrupts */
 
-        clear_screen_buf();
+	clear_screen_buf();
 
 	return;
 }
@@ -701,9 +701,9 @@ void serial_echo_print(const char *p)
  */
 struct ascii_map_str ser_map[] =
 /*ascii keycode     ascii  keycode*/
-{ 
+{
   /* Special cases come first so I can leave
-   * their ``normal'' mapping in the table,
+   * their "normal" mapping in the table,
    * without it being activated.
    */
   {  27,   0x01}, /* ^[/ESC -> ESC  */

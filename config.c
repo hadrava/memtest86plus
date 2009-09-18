@@ -38,7 +38,7 @@ void get_config()
 		cprint(POP_Y+9,  POP_X+6, "(7) Restart");
 		cprint(POP_Y+10, POP_X+6, "(8) Refresh Screen");
 		cprint(POP_Y+11, POP_X+6, "(9) Adv. Options");
-		cprint(POP_Y+12,POP_X+6,"(0) Continue");
+		cprint(POP_Y+12, POP_X+6, "(0) Continue");
 
 		/* Wait for key release */
 		/* Fooey! This nuts'es up the serial input. */
@@ -52,7 +52,8 @@ void get_config()
 			cprint(POP_Y+4, POP_X+6, "(2) Skip Current Test");
 			cprint(POP_Y+5, POP_X+6, "(3) Select Test");
 			cprint(POP_Y+6, POP_X+6, "(4) Select Bit Fade Test");
-			cprint(POP_Y+7, POP_X+6, "(0) Continue");
+			cprint(POP_Y+7, POP_X+6, "(5) Select Uncached Test");
+			cprint(POP_Y+8, POP_X+6, "(0) Continue");
 			if (v->testsel < 0) {
 				cprint(POP_Y+3, POP_X+5, ">");
 			} else {
@@ -63,7 +64,7 @@ void get_config()
 				switch(get_key()) {
 				case 2:
 					/* Default */
-					if (v->testsel == 9) {
+					if (v->testsel > 8) {
 						bail++;
 					}
 					v->testsel = -1;
@@ -82,9 +83,9 @@ void get_config()
 					cprint(POP_Y+1, POP_X+3,
 						"Test Selection:");
 					cprint(POP_Y+4, POP_X+5,
-						"Test Number [0-9]: ");
+						"Test Number [0-10]: ");
 					i = getval(POP_Y+4, POP_X+24, 0);
-					if (i <= 9) {
+					if (i <= 10) {
 						if (i != v->testsel) {
 							v->pass = -1;
 							v->test = -1;
@@ -103,12 +104,24 @@ void get_config()
 						v->test = -1;
 					}
 					v->testsel = 9;
-                                        find_ticks();
-                                        sflag++;
-                                        bail++;
-                                        cprint(LINE_INFO, COL_TST, "#");
-                                        dprint(LINE_INFO, COL_TST+1, 9, 2, 1);
-                                        break;
+					find_ticks();
+					sflag++;
+					bail++;
+					cprint(LINE_INFO, COL_TST, "#");
+					dprint(LINE_INFO, COL_TST+1, 9, 3, 1);
+					break;
+				case 6:
+					if (v->testsel != 10) {
+						v->pass = -1;
+						v->test = -1;
+					}
+					v->testsel = 9+1;
+					find_ticks();
+					sflag++;
+					bail++;
+					cprint(LINE_INFO, COL_TST, "#");
+					dprint(LINE_INFO, COL_TST+1, 10, 3, 1);
+					break;
 				case 11:
 				case 57:
 					sflag++;
@@ -353,7 +366,7 @@ void get_config()
 			reprint_screen = 1;
 			flag++;
 			break;
-                case 10:
+		case 10:
 			get_menu();
 			break;
 		case 11:
@@ -368,9 +381,9 @@ void get_config()
 	if (prt) {
 		printpatn();
 	}
-        if (reprint_screen){
-            tty_print_screen();
-        }
+	if (reprint_screen){
+		tty_print_screen();
+	}
 }
 
 
@@ -382,11 +395,11 @@ void popup()
 	for (i=POP_Y; i<POP_Y + POP_H; i++) { 
 		for (j=POP_X; j<POP_X + POP_W; j++) { 
 			pp = (char *)(SCREEN_ADR + (i * 160) + (j * 2));
-                        save[0][i-POP_Y][j-POP_X] = *pp;  /* Save screen */
-                        set_scrn_buf(i, j, ' ');
-			*pp = ' ';		/* Clear */                        
+			save[0][i-POP_Y][j-POP_X] = *pp;  /* Save screen */
+			set_scrn_buf(i, j, ' ');
+			*pp = ' ';		/* Clear */
 			pp++;
-                        save[1][i-POP_Y][j-POP_X] = *pp;
+			save[1][i-POP_Y][j-POP_X] = *pp;
 			*pp = 0x07;		/* Change Background to black */
 		}
 	}
@@ -402,7 +415,7 @@ void popdown()
 		for (j=POP_X; j<POP_X + POP_W; j++) { 
 			pp = (char *)(SCREEN_ADR + (i * 160) + (j * 2));
 			*pp = save[0][i-POP_Y][j-POP_X]; /* Restore screen */
-                        set_scrn_buf(i, j, save[0][i-POP_Y][j-POP_X]);
+			set_scrn_buf(i, j, save[0][i-POP_Y][j-POP_X]);
 			pp++;
 			*pp = save[1][i-POP_Y][j-POP_X]; /* Restore color */
 		}
@@ -419,7 +432,7 @@ void popclear()
 		for (j=POP_X; j<POP_X + POP_W; j++) { 
 			pp = (char *)(SCREEN_ADR + (i * 160) + (j * 2));
 			*pp = ' ';		/* Clear popup */
-                        set_scrn_buf(i, j, ' ');
+			set_scrn_buf(i, j, ' ');
 			pp++;
 		}
 	}

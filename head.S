@@ -28,7 +28,8 @@
 #define X86_CAPABILITY	8
 #define X86_VENDOR_ID	12
 #define X86_CACHE	24
-#define X86_PWRCAP	40
+#define X86_PWRCAP 40
+#define X86_EXT	44
 
 	.code32
 	.globl startup_32
@@ -42,7 +43,7 @@ startup_32:
 	movl	$(LOW_TEST_ADR + _GLOBAL_OFFSET_TABLE_), %esp
 	leal	stack_top@GOTOFF(%esp), %esp
 0:
-	
+
 	/* Load the GOT pointer */
 	call	0f
 0:	popl	%ebx
@@ -82,7 +83,7 @@ flush:	movl	$KERNEL_DS, %eax
 	movl	$0, zerobss@GOTOFF(%ebx)
 zerobss_done:
 
-/* 
+/*
  * Clear the video display
  */
 	cmpl	$1, clear_display@GOTOFF(%ebx)
@@ -263,7 +264,7 @@ clear_display_done:
 	movl	%edx,4(%edi)
 	addl	$8,%edi
 
-	/* Now that it is initialized load the interrupt descritor table */
+	/* Now that it is initialized load the interrupt descriptor table */
 	leal	idt@GOTOFF(%ebx), %eax
 	movl	%eax, 2 + idt_descr@GOTOFF(%ebx)
 	lidt	idt_descr@GOTOFF(%ebx)
@@ -272,7 +273,7 @@ clear_display_done:
 
 	leal	cpu_id@GOTOFF(%ebx), %esi
 	movl	%ebx, %edi
-	
+
 	movl	$-1, X86_CPUID(%esi)	#  -1 for no CPUID initially
 
 /* check if it is 486 or 386. */
@@ -330,6 +331,7 @@ have_cpuid:
 	movl	$1, %eax		# Use the CPUID instruction to get CPU type
 	cpuid
 
+
 	#
 	# CDH start
 	# Check FPU, initialize if present
@@ -337,12 +339,13 @@ have_cpuid:
 	testl $1, %edx # FPU available?
 	jz no_fpu
 	finit
-	
+
 	no_fpu:
 	#
 	# CDH end
 	#
 
+	movl  %eax, X86_EXT(%esi) #save complete extended CPUID to X86_EXT
 	movb	%al, %cl		# save reg for future use
 	andb	$0x0f, %ah		# mask processor family
 	movb	%ah, X86(%esi)
@@ -359,10 +362,10 @@ have_cpuid:
 	movl	$0, X86_CACHE+12(%esi)
 
 	movl	X86_VENDOR_ID+8(%esi), %eax
-	cmpl	$0x6c65746e,%eax	# Is this an Intel CPU?
+	cmpl	$0x6c65746e,%eax	# Is this an Intel CPU? "GenuineIntel"
 	jne	not_intel
 	movb	%bl, X86_PWRCAP(%esi) 	# Store BrandID in AMD PWRCAP if the CPU is from Intel
-	movl	$2, %eax		# Use the CPUID instruction to get cache info 
+	movl	$2, %eax		# Use the CPUID instruction to get cache info
 	cpuid
 	movl	%eax, X86_CACHE(%esi)
 	movl	%ebx, X86_CACHE+4(%esi)
@@ -372,10 +375,10 @@ have_cpuid:
 
 not_intel:
 	movl	X86_VENDOR_ID+8(%esi),%eax
-	cmpl	$0x444d4163, %eax	# Is this an AMD CPU?
+	cmpl	$0x444d4163, %eax	# Is this an AMD CPU? "AuthenticAMD"
 	jne	not_amd
 
-	movl	$0x80000005, %eax	# Use the CPUID instruction to get cache info 
+	movl	$0x80000005, %eax	# Use the CPUID instruction to get cache info
 	cpuid
 	movl	%ecx, X86_CACHE(%esi)
 	movl	%edx, X86_CACHE+4(%esi)
@@ -388,17 +391,55 @@ not_intel:
 
 not_amd:
 	movl	X86_VENDOR_ID+8(%esi), %eax
-	cmpl	$0x64616374, %eax	# Is this a Cyrix CPU?
-	jne	id_done
+	cmpl	$0x3638784D, %eax	# Is this a Transmeta CPU? "GenuineTMx86"
+	jne	not_transmeta
+
+	movl	$0x80000000, %eax	# Use the CPUID instruction to check for cache info
+	cpuid
+	cmp	$6, %al			# Is cache info available?
+	jb	id_done
+
+	movl	$0x80000005, %eax	# Use the CPUID instruction to get L1 cache info
+	cpuid
+	movl	%ecx, X86_CACHE(%esi)
+	movl	%edx, X86_CACHE+4(%esi)
+	movl	$0x80000006, %eax	# Use the CPUID instruction to get L2 cache info
+	cpuid
+	movl	%ecx, X86_CACHE+8(%esi)
+
+not_transmeta:
+	movl	X86_VENDOR_ID+8(%esi), %eax
+	cmpl	$0x64616574, %eax	# Is this a Via/Cyrix CPU? "CyrixInstead"
+	jne	not_cyrix
 
 	movl	X86_CPUID(%esi), %eax	# get CPUID level
 	cmpl	$2, %eax		# Is there cache information available ?
 	jne	id_done
 
-	movl	$2, %eax		# Use the CPUID instruction to get cache info 
+	movl	$2, %eax		# Use the CPUID instruction to get cache info
 	cpuid
 	movl	%edx, X86_CACHE(%esi)
 
+not_cyrix:
+	movl	X86_VENDOR_ID+8(%esi), %eax
+	cmpl	$0x736C7561, %eax	# Is this a Via/Centaur CPU "CentaurHauls"
+	jne	not_centaur
+
+	movl	$0x80000000, %eax	# Use the CPUID instruction to check for cache info
+	cpuid
+	cmp	$6, %al			# Is cache info available?
+	jb	id_done
+
+	movl	$0x80000005, %eax	# Use the CPUID instruction to get L1 cache info
+	cpuid
+	movl	%ecx, X86_CACHE(%esi)
+	movl	%edx, X86_CACHE+4(%esi)
+	movl	$0x80000006, %eax	# Use the CPUID instruction to get L2 cache info
+	cpuid
+	movl	%ecx, X86_CACHE+8(%esi)
+
+
+not_centaur:
 id_done:
 	movl	%edi, %ebx	/* Restore GOT pointer */
 
@@ -421,97 +462,97 @@ vec1:
 	pushl	$0 /* error code */
 	pushl	$1 /* vector */
 	jmp int_hand
-	
+
 vec2:
 	pushl	$0 /* error code */
 	pushl	$2 /* vector */
 	jmp int_hand
-	
+
 vec3:
 	pushl	$0 /* error code */
 	pushl	$3 /* vector */
 	jmp	int_hand
-	
+
 vec4:
 	pushl	$0 /* error code */
 	pushl	$4 /* vector */
 	jmp	int_hand
-	
+
 vec5:
 	pushl	$0 /* error code */
 	pushl	$5 /* vector */
 	jmp	int_hand
-	
+
 vec6:
 	pushl	$0 /* error code */
 	pushl	$6 /* vector */
 	jmp	int_hand
-	
+
 vec7:
 	pushl	$0 /* error code */
 	pushl	$7 /* vector */
 	jmp	int_hand
-	
+
 vec8:
 	/* error code */
 	pushl	$8 /* vector */
 	jmp	int_hand
-	
+
 vec9:
 	pushl	$0 /* error code */
 	pushl	$9 /* vector */
 	jmp int_hand
-	
+
 vec10:
 	/* error code */
 	pushl	$10 /* vector */
 	jmp	int_hand
-	
+
 vec11:
 	/* error code */
 	pushl	$11 /* vector */
 	jmp	int_hand
-	
+
 vec12:
 	/* error code */
 	pushl	$12 /* vector */
 	jmp	int_hand
-	
+
 vec13:
 	/* error code */
 	pushl	$13 /* vector */
 	jmp	int_hand
-	
+
 vec14:
 	/* error code */
 	pushl	$14 /* vector */
 	jmp	int_hand
-	
+
 vec15:
 	pushl	$0 /* error code */
 	pushl	$15 /* vector */
 	jmp	int_hand
-	
+
 vec16:
 	pushl	$0 /* error code */
 	pushl	$16 /* vector */
 	jmp	int_hand
-	
+
 vec17:
 	/* error code */
 	pushl	$17 /* vector */
 	jmp	int_hand
-	
+
 vec18:
 	pushl	$0 /* error code */
 	pushl	$18 /* vector */
 	jmp	int_hand
-	
+
 vec19:
 	pushl	$0 /* error code */
 	pushl	$19 /* vector */
 	jmp	int_hand
-	
+
 int_hand:
 	pushl	%eax
 	pushl	%ebx
@@ -522,13 +563,13 @@ int_hand:
 	pushl	%ebp
 
 	/* original stack pointer */
-	leal	20(%esp), %eax 
+	leal	20(%esp), %eax
 	pushl	%eax
-	
+
 	pushl	%esp /* pointer to structure on the stack */
 	call	inter
 	addl	$8, %esp
-	
+
 	popl	%ebp
 	popl	%esi
 	popl	%edi
@@ -541,7 +582,7 @@ int_hand:
 /*
  * The interrupt descriptor table has room for 32 idt's
  */
-.align 4	
+.align 4
 .word 0
 idt_descr:
 	.word 20*8-1	       # idt contains 32 entries
@@ -597,7 +638,7 @@ maxdepth \depth-1
 .endif
 .endm
 
-maxdepth 
+maxdepth
 
 .balign 4096
 .globl pd0
@@ -611,7 +652,7 @@ pd1:
 
 .balign 4096
 .globl pd2
-pd2:	
+pd2:
 	ptes64 0x0000000080000000
 
 .balign 4096
@@ -626,10 +667,10 @@ pdp:
 	.long 0
 	.long pd1 + 1
 	.long 0
-	
+
 	.long pd2 + 1
 	.long 0
-	
+
 	.long pd3 + 1
 	.long 0
 .previous
@@ -658,7 +699,7 @@ query_pcbios:
 	/* Fixup protected code pointer */
 	leal	prot@GOTOFF(%ebx), %eax
 	movl	%eax, protptr@GOTOFF(%ebx)
-	
+
 	/* Compute the gdt fixup */
 	movl	%esi, %eax
 	shll	$16, %eax	# Base low
@@ -684,7 +725,7 @@ query_pcbios:
 	/* Fixup the gdt_descr */
 	leal	gdt@GOTOFF(%ebx), %eax
 	movl	%eax, 2 + gdt_descr@GOTOFF(%ebx)
-	
+
 	lidt	idt_real@GOTOFF(%ebx)
 
 	/* Don't disable the a20 line */
@@ -701,7 +742,7 @@ query_pcbios:
 	leal	stack@GOTOFF(%ebx), %ecx
 	/* Compute the address of meminfo */
 	leal	mem_info@GOTOFF(%ebx), %edi
-	
+
 	/* switch to 16bit mode */
 	ljmp	$REAL_CS, $1f - RSTART
 1:
@@ -711,7 +752,7 @@ query_pcbios:
 	movl	%cr0,%eax
 	andl	$~((1 << 31)|(1<<0)),%eax
 	movl	%eax,%cr0
-	
+
 	/* make intersegment jmp to flush the processor pipeline
 	 * and reload %cs:%eip (to clear upper 16 bits of %eip).
 	 */
@@ -823,7 +864,7 @@ meme801:
 	jne	e801usecxdx			# which report their extended
 	cmpw	$0x0, %dx			# memory in AX/BX rather than
 	jne	e801usecxdx			# CX/DX.  The spec I have read
-	movw	%ax, %cx			# seems to indicate AX/BX 
+	movw	%ax, %cx			# seems to indicate AX/BX
 	movw	%bx, %dx			# are more reasonable anyway...
 
 e801usecxdx:
@@ -855,18 +896,18 @@ mem88:
 	movw	$0x5304, %ax    # Disconnect first just in case
 	xorw	%bx, %bx
 	int	$0x15           # ignore return code
-	
+
 	movw	$0x5301, %ax    # Real Mode connect
 	xorw	%bx, %bx
 	int	$0x15
 	jc	done_apm_bios   # error
-	
+
 	movw	$0x5308, %ax    # Disable APM
 	mov	$0xffff, %bx
 	xorw	%cx, %cx
 	int	$0x15
-		
-done_apm_bios: 
+
+done_apm_bios:
 #endif
 
 	/* O.k. the BIOS query is done switch back to protected mode */
@@ -911,7 +952,7 @@ prot:
 	popl	%ebx
 	movl	$1, %eax
 	ret
-	
+
 realptr:
 	.word	real - RSTART
 	.word	0x0000

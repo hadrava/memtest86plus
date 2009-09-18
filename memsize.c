@@ -105,7 +105,7 @@ static void sort_pmap(void)
 		if (i != j) {
 			struct pmap temp;
 			temp = v->pmap[i];
-			memmove(&v->pmap[j], &v->pmap[j+1], 
+			memmove(&v->pmap[j], &v->pmap[j+1],
 				(i -j)* sizeof(temp));
 			v->pmap[j] = temp;
 		}
@@ -186,7 +186,7 @@ static void memsize_820(int res)
 		cprint(LINE_INFO, COL_MMAP, "e820-Std");
 	}
 }
-	
+
 static void memsize_801(void)
 {
 	ulong mem_size;
@@ -216,7 +216,7 @@ static void memsize_801(void)
 /*
  * Sanitize the BIOS e820 map.
  *
- * Some e820 responses include overlapping entries.  The following 
+ * Some e820 responses include overlapping entries.  The following
  * replaces the original e820 map with a new one, removing overlaps.
  *
  */
@@ -374,7 +374,7 @@ static int sanitize_e820_map(struct e820entry *orig_map, struct e820entry *new_b
 				/* move forward only if the new size was non-zero */
 				if (new_bios[new_bios_entry].size != 0)
 					if (++new_bios_entry >= E820MAX)
-						break; 	/* no more space left for new bios entries */
+						break;	/* no more space left for new bios entries */
 			}
 			if (current_type != 0)	{
 				new_bios[new_bios_entry].addr = change_point[chgidx]->addr;
@@ -397,8 +397,8 @@ static void memsize_probe(void)
 	 * must be limited.  The max address is found by checking for
 	 * memory wrap from 1MB to 4GB.  */
 	p1 = (ulong)&magic;
-	m_lim = 0xfffffffc; 
-	for (p2 = 0x100000; p2; p2 <<= 1) {  
+	m_lim = 0xfffffffc;
+	for (p2 = 0x100000; p2; p2 <<= 1) {
 		p = (ulong *)(p1 + p2);
 		if (*p == 0x1234569) {
 			m_lim = --p2;
@@ -415,7 +415,7 @@ static void memsize_probe(void)
 	v->pmap[i].start = ((ulong)&_end + (1 << 12) - 1) >> 12;
 	p = (ulong *)(v->pmap[i].start << 12);
 
-	/* Limit search for memory to m_lim and make sure we don't 
+	/* Limit search for memory to m_lim and make sure we don't
 	 * overflow the 32 bit size of p.  */
 	while ((ulong)p < m_lim && (ulong)p >= (ulong)&_end) {
 		/*
@@ -482,34 +482,34 @@ fstart:
  * We then check that at least one bit changed in each byte before
  * believing that it really is memory.  */
 
-static int check_ram(void) 
+static int check_ram(void)
 {
-        int s;
+	int s;
 
-        p1 = *p;
+	p1 = *p;
 
-        /* write the complement */
-        *p = ~p1;
-        p2 = *p;
-        s = 0;
+	/* write the complement */
+	*p = ~p1;
+	p2 = *p;
+	s = 0;
 
-        /* Now make sure a bit changed in each byte */
-        if ((0xff & p1) != (0xff & p2)) {
-                s++;
-        }
-        if ((0xff00 & p1) != (0xff00 & p2)) {
-                s++;
-        }
-        if ((0xff0000 & p1) != (0xff0000 & p2)) {
-                s++;
-        }
-        if ((0xff000000 & p1) != (0xff000000 & p2)) {
-                s++;
-        }
-        if (s == 4) {
-                /* RAM at this address */
-                return 1;
-        }
+	/* Now make sure a bit changed in each byte */
+	if ((0xff & p1) != (0xff & p2)) {
+		s++;
+	}
+	if ((0xff00 & p1) != (0xff00 & p2)) {
+		s++;
+	}
+	if ((0xff0000 & p1) != (0xff0000 & p2)) {
+		s++;
+	}
+	if ((0xff000000 & p1) != (0xff000000 & p2)) {
+		s++;
+	}
+	if (s == 4) {
+		/* RAM at this address */
+		return 1;
+	}
 
-        return 0;
+	return 0;
 }

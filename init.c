@@ -3,7 +3,7 @@
  * Released under version 2 of the Gnu Public License.
  * By Chris Brady, cbrady@sgi.com
  * ----------------------------------------------------
- * MemTest86+ V1.40 Specific code (GPL V2.0)
+ * MemTest86+ V1.50 Specific code (GPL V2.0)
  * By Samuel DEMEULEMEESTER, sdemeule@memtest.org
  * http://www.x86-secret.com - http://www.memtest.org
  */
@@ -36,11 +36,11 @@ static void display_init(void)
 	volatile char *pp;
 
 	serial_echo_init();
-        serial_echo_print("[LINE_SCROLL;24r"); /* Set scroll area row 7-23 */
-        serial_echo_print("[H[2J");   /* Clear Screen */
-        serial_echo_print("[37m[44m");
-        serial_echo_print("[0m");
-        serial_echo_print("[37m[44m");
+	serial_echo_print("\x1B[LINE_SCROLL;24r"); /* Set scroll area row 7-23 */
+	serial_echo_print("\x1B[H\x1B[2J");   /* Clear Screen */
+	serial_echo_print("\x1B[37m\x1B[44m");
+	serial_echo_print("\x1B[0m");
+	serial_echo_print("\x1B[37m\x1B[44m");
 
 	/* Clear screen & set background to blue */
 	for(i=0, pp=(char *)(SCREEN_ADR); i<80*24; i++) {
@@ -49,22 +49,22 @@ static void display_init(void)
 	}
 
 	/* Make the name background red */
- 	for(i=0, pp=(char *)(SCREEN_ADR+1); i<TITLE_WIDTH; i++, pp+=2) {
-  	*pp = 0x20;
- 	}
- 	cprint(0, 0, "      Memtest86  v1.40      ");
+	for(i=0, pp=(char *)(SCREEN_ADR+1); i<TITLE_WIDTH; i++, pp+=2) {
+		*pp = 0x20;
+	}
+	cprint(0, 0, "      Memtest86  v1.50      ");
 
- 	for(i=0, pp=(char *)(SCREEN_ADR+1); i<2; i++, pp+=30) {
-	*pp = 0xA4;
- 	}
- 	cprint(0, 15, "+");
+	for(i=0, pp=(char *)(SCREEN_ADR+1); i<2; i++, pp+=30) {
+		*pp = 0xA4;
+	}
+	cprint(0, 15, "+");
 
 	/* Do reverse video for the bottom display line */
 	for(i=0, pp=(char *)(SCREEN_ADR+1+(24 * 160)); i<80; i++, pp+=2) {
-	*pp = 0x71;
+		*pp = 0x71;
 	}
 
-        serial_echo_print("[0m");
+	serial_echo_print("\x1B[0m");
 }
 
 /*
@@ -78,12 +78,12 @@ void init(void)
 
 	/* Turn on cache */
 	set_cache(1);
-	
+
 	/* Setup the display */
 	display_init();
 
 	/* Determine the memory map */
-	if ((firmware == FIRMWARE_UNKNOWN) && 
+	if ((firmware == FIRMWARE_UNKNOWN) &&
 		(memsz_mode != SZ_MODE_PROBE)) {
 		if (query_linuxbios()) {
 			firmware = FIRMWARE_LINUXBIOS;
@@ -97,7 +97,7 @@ void init(void)
 
 	/* setup pci */
 	pci_init();
-	
+
 	/* setup beep mode */
 	beepmode = BEEP_MODE;
 
@@ -113,7 +113,7 @@ void init(void)
 	cprint(LINE_CPU+4, 0, "Chipset : ");
 
 	cpu_type();
-	
+
 	/* Find the memory controller (inverted from standard) */
 	find_controller();
 
@@ -155,9 +155,10 @@ void paging_off(void)
 		"movl %%cr0, %%eax\n\t"
 		"andl $0x7FFFFFFF, %%eax\n\t"
 		"movl %%eax, %%cr0\n\t"
-		/* Disable pae */
+		/* Disable pae and pse */
 		"movl %%cr4, %%eax\n\t"
-		"andl $0xFFFFFFDF, %%eax\n\t"
+		"and $0xCF, %%al\n\t"
+		"movl %%eax, %%cr4\n\t"
 		:
 		:
 		: "ax"
@@ -210,6 +211,17 @@ int map_page(unsigned long page)
 	}
 	/* Compute the page table entries... */
 	for(i = 0; i < 1024; i++) {
+		/*-----------------10/30/2004 12:37PM---------------
+		 * 0xE3 --
+		 * Bit 0 = Present bit.      1 = PDE is present
+		 * Bit 1 = Read/Write.       1 = memory is writable
+		 * Bit 2 = Supervisor/User.  0 = Supervisor only (CPL 0-2)
+		 * Bit 3 = Writethrough.     0 = writeback cache policy
+		 * Bit 4 = Cache Disable.    0 = page level cache enabled
+		 * Bit 5 = Accessed.         1 = memory has been accessed.
+		 * Bit 6 = Dirty.            1 = memory has been written to.
+		 * Bit 7 = Page Size.        1 = page size is 2 MBytes
+		 * --------------------------------------------------*/
 		pd2[i].addr_lo = ((window & 1) << 31) + ((i & 0x3ff) << 21) + 0xE3;
 		pd2[i].addr_hi = (window >> 1);
 	}
@@ -258,7 +270,7 @@ unsigned long page_of(void *addr)
 	cprint(LINE_SCROLL -2, 0, "page_of(        )->            ");
 	hprint(LINE_SCROLL -2, 8, ((unsigned long)addr));
 	hprint(LINE_SCROLL -2, 20, page);
-#endif	
+#endif
 	return page;
 }
 
@@ -266,7 +278,7 @@ unsigned long page_of(void *addr)
 /*
  * Find CPU type and cache sizes
  */
- 
+
 
 void cpu_type(void)
 {
@@ -387,13 +399,13 @@ void cpu_type(void)
 				l2_cache = (cpu_id.cache_info[11] << 8);
 				l2_cache += cpu_id.cache_info[10];
 				break;
-			case 13: 
-				cprint(LINE_CPU, 0, "AMD K6-III+"); 
-				off = 11; 
-				l1_cache = cpu_id.cache_info[3]; 
-				l1_cache += cpu_id.cache_info[7]; 
-				l2_cache = (cpu_id.cache_info[11] << 8); 
-				l2_cache += cpu_id.cache_info[10]; 
+			case 13:
+				cprint(LINE_CPU, 0, "AMD K6-III+");
+				off = 11;
+				l1_cache = cpu_id.cache_info[3];
+				l1_cache += cpu_id.cache_info[7];
+				l2_cache = (cpu_id.cache_info[11] << 8);
+				l2_cache += cpu_id.cache_info[10];
 				break;
 			}
 			break;
@@ -416,23 +428,23 @@ void cpu_type(void)
 				l2_cache = (cpu_id.cache_info[11] << 8);
 				l2_cache += cpu_id.cache_info[10];
 				if (l2_cache == 64) {
-                               		cprint(LINE_CPU, 0, "AMD Duron (0.18)");
-                                } else {
-                                	cprint(LINE_CPU, 0, "Athlon XP (0.18)");
+					cprint(LINE_CPU, 0, "AMD Duron (0.18)");
+				} else {
+					cprint(LINE_CPU, 0, "Athlon XP (0.18)");
 				}
 				off = 16;
 				break;
 			case 8:
 			case 10:
-                                l2_cache = (cpu_id.cache_info[11] << 8);
-                                l2_cache += cpu_id.cache_info[10];               
-                                if (l2_cache == 64) {
-                               		cprint(LINE_CPU, 0, "AMD Duron (0.13)");
-                                } else {
-                                	cprint(LINE_CPU, 0, "Athlon XP (0.13)");
+				l2_cache = (cpu_id.cache_info[11] << 8);
+				l2_cache += cpu_id.cache_info[10];
+				if (l2_cache == 64) {
+					cprint(LINE_CPU, 0, "AMD Duron (0.13)");
+				} else {
+					cprint(LINE_CPU, 0, "Athlon XP (0.13)");
 				}
 				off = 16;
-                                break;
+				break;
 			case 3:
 			case 7:
 				cprint(LINE_CPU, 0, "AMD Duron");
@@ -454,317 +466,353 @@ void cpu_type(void)
 		case 15:
 			l1_cache = cpu_id.cache_info[3];
 			l1_cache += cpu_id.cache_info[7];
-      l2_cache = (cpu_id.cache_info[11] << 8);
-      l2_cache += cpu_id.cache_info[10];
+			l2_cache = (cpu_id.cache_info[11] << 8);
+			l2_cache += cpu_id.cache_info[10];
 			switch(cpu_id.model) {
 			default:
 				cprint(LINE_CPU, 0, "AMD Athlon 64");
-             off = 13;
-             break;
+				off = 13;
+				break;
 			case 5:
 				cprint(LINE_CPU, 0, "AMD Opteron (0.13)");
-             off = 18;
-             break;
-      case  4:
-      case 12:			
-			if (l2_cache == 256) {
-				cprint(LINE_CPU, 0, "AMD Sempron (0.13)");
-             off = 18;                        	
-      } else {
-				cprint(LINE_CPU, 0, "Athlon 64 (0.13)");
-             off = 16; 
-      }  	
-    				 break;
-   		case 15:
+				off = 18;
+				break;
+			case  4:
+			case 12:
+				if (l2_cache == 256) {
+					cprint(LINE_CPU, 0, "AMD Sempron (0.13)");
+					off = 18;
+				} else {
+					cprint(LINE_CPU, 0, "Athlon 64 (0.13)");
+					off = 16;
+				}
+				break;
+			case 15:
+				if ((cpu_id.ext >> 16) & 1) {
 				cprint(LINE_CPU, 0, "Athlon 64 (0.09)");
-             off = 16;
-             break;          
-             
+				} else {
+				cprint(LINE_CPU, 0, "Athlon 64 (0.13)");			
+				}
+				off = 16;
+				break;
 			}
 			break;
 		}
 		break;
 
-	/* Intel Processors */
+	/* Intel or Transmeta Processors */
 	case 'G':
-		if (cpu_id.type == 4) {
-			switch(cpu_id.model) {
-			case 0:
-			case 1:
-				cprint(LINE_CPU, 0, "Intel 486DX");
-				off = 11;
-				break;
-			case 2:
-				cprint(LINE_CPU, 0, "Intel 486SX");
-				off = 11;
-				break;
-			case 3:
-				cprint(LINE_CPU, 0, "Intel 486DX2");
-				off = 12;
-				break;
-			case 4:
-				cprint(LINE_CPU, 0, "Intel 486SL");
-				off = 11;
-				break;
-			case 5:
-				cprint(LINE_CPU, 0, "Intel 486SX2");
-				off = 12;
-				break;
-			case 7:
-				cprint(LINE_CPU, 0, "Intel 486DX2-WB");
-				off = 15;
-				break;
-			case 8:
-				cprint(LINE_CPU, 0, "Intel 486DX4");
-				off = 12;
-				break;
-			case 9:
-				cprint(LINE_CPU, 0, "Intel 486DX4-WB");
-				off = 15;
-				break;
-			}
-			/* Since we can't get CPU speed or cache info return */
-			return;
-		}
-
-		/* Get the cache info */
-		for (i=0; i<16; i++) {
-#ifdef CPUID_DEBUG
-			dprint(12,i*3,cpu_id.cache_info[i],2,1);
-#endif
-			switch(cpu_id.cache_info[i]) {
-			case 0x6:
-			case 0xa:
-			case 0x66:
-				l1_cache += 8;
-				break;
-			case 0x8:
-			case 0xc:
-			case 0x67:
-			case 0x60:
-				l1_cache += 16;
-				break;
-			case 0x68:
-			case 0x2c:
-			case 0x30:
-				l1_cache += 32;
-				break;
-			case 0x40:
-				l2_cache = 0;
-				break;
-			case 0x41:
-			case 0x79:
-			case 0x39:
-			case 0x3b:
-				l2_cache = 128;
-				break;
-			case 0x42:
-			case 0x7a:
-			case 0x82:
-			case 0x3c:
-				l2_cache = 256;
-				break;
-			case 0x43:
-			case 0x7b:
-			case 0x83:
-			case 0x86:
-				l2_cache = 512;
-				break;
-			case 0x44:
-			case 0x7c:
-			case 0x84:
-			case 0x87:
-				l2_cache = 1024;
-				break;
-			case 0x45:
-			case 0x7d:
-			case 0x85:
-				l2_cache = 2048;
-				break;
-			}
-		}
-
-		switch(cpu_id.type) {
-		case 5:
-			switch(cpu_id.model) {
-			case 0:
-			case 1:
-			case 2:
-			case 3:
-			case 7:
-				cprint(LINE_CPU, 0, "Pentium");
-				if (l1_cache == 0) {
-					l1_cache = 8;
-				}
+		if ( cpu_id.vend_id[7] == 'T' ) {	/* GenuineTMx86 */
+			if (cpu_id.type == 5) {
+				cprint(LINE_CPU, 0, "TM 5x00");
 				off = 7;
-				break;
-			case 4:
-			case 8:
-				cprint(LINE_CPU, 0, "Pentium-MMX");
-				if (l1_cache == 0) {
-					l1_cache = 16;
-				}
-				off = 11;
-				break;
+			} else if (cpu_id.type == 15) {
+				cprint(LINE_CPU, 0, "TM 8x00");
+				off = 7;
 			}
-			break;
-		case 6:
-			switch(cpu_id.model) {
-			case 0:
-			case 1:
-				cprint(LINE_CPU, 0, "Pentium Pro");
-				off = 11;
-				break;
-			case 3:
-				cprint(LINE_CPU, 0, "Pentium II");
-				off = 10;
-				break;
+			l1_cache = cpu_id.cache_info[3] + cpu_id.cache_info[7];
+			l2_cache = (cpu_id.cache_info[11]*256) + cpu_id.cache_info[10];
+		} else {				/* GenuineIntel */
+			if (cpu_id.type == 4) {
+				switch(cpu_id.model) {
+				case 0:
+				case 1:
+					cprint(LINE_CPU, 0, "Intel 486DX");
+					off = 11;
+					break;
+				case 2:
+					cprint(LINE_CPU, 0, "Intel 486SX");
+					off = 11;
+					break;
+				case 3:
+					cprint(LINE_CPU, 0, "Intel 486DX2");
+					off = 12;
+					break;
+				case 4:
+					cprint(LINE_CPU, 0, "Intel 486SL");
+					off = 11;
+					break;
+				case 5:
+					cprint(LINE_CPU, 0, "Intel 486SX2");
+					off = 12;
+					break;
+				case 7:
+					cprint(LINE_CPU, 0, "Intel 486DX2-WB");
+					off = 15;
+					break;
+				case 8:
+					cprint(LINE_CPU, 0, "Intel 486DX4");
+					off = 12;
+					break;
+				case 9:
+					cprint(LINE_CPU, 0, "Intel 486DX4-WB");
+					off = 15;
+					break;
+				}
+				/* Since we can't get CPU speed or cache info return */
+				return;
+			}
+
+			/* Get the cache info */
+			for (i=0; i<16; i++) {
+#ifdef CPUID_DEBUG
+				dprint(12,i*3,cpu_id.cache_info[i],2,1);
+#endif
+				switch(cpu_id.cache_info[i]) {
+				case 0x6:
+				case 0xa:
+				case 0x66:
+					l1_cache += 8;
+					break;
+				case 0x8:
+				case 0xc:
+				case 0x67:
+				case 0x60:
+					l1_cache += 16;
+					break;
+				case 0x68:
+				case 0x2c:
+				case 0x30:
+					l1_cache += 32;
+					break;
+				case 0x40:
+					l2_cache = 0;
+					break;
+				case 0x41:
+				case 0x79:
+				case 0x39:
+				case 0x3b:
+					l2_cache = 128;
+					break;
+				case 0x42:
+				case 0x7a:
+				case 0x82:
+				case 0x3c:
+					l2_cache = 256;
+					break;
+				case 0x43:
+				case 0x7b:
+				case 0x83:
+				case 0x86:
+					l2_cache = 512;
+					break;
+				case 0x44:
+				case 0x7c:
+				case 0x84:
+				case 0x87:
+					l2_cache = 1024;
+					break;
+				case 0x45:
+				case 0x7d:
+				case 0x85:
+					l2_cache = 2048;
+					break;
+				}
+			}
+
+			switch(cpu_id.type) {
 			case 5:
-				if (l2_cache == 0) {
-					cprint(LINE_CPU, 0, "Celeron");
+				switch(cpu_id.model) {
+				case 0:
+				case 1:
+				case 2:
+				case 3:
+				case 7:
+					cprint(LINE_CPU, 0, "Pentium");
+					if (l1_cache == 0) {
+						l1_cache = 8;
+					}
 					off = 7;
-				} else {
-					cprint(LINE_CPU, 0, "Pentium II");
-					off = 10;
+					break;
+				case 4:
+				case 8:
+					cprint(LINE_CPU, 0, "Pentium-MMX");
+					if (l1_cache == 0) {
+						l1_cache = 16;
+					}
+					off = 11;
+					break;
 				}
 				break;
 			case 6:
-				if (l2_cache == 128) {
-					cprint(LINE_CPU, 0, "Celeron");
-					off = 7;
-				} else {
+				switch(cpu_id.model) {
+				case 0:
+				case 1:
+					cprint(LINE_CPU, 0, "Pentium Pro");
+					off = 11;
+					break;
+				case 3:
 					cprint(LINE_CPU, 0, "Pentium II");
 					off = 10;
+					break;
+				case 5:
+					if (l2_cache == 0) {
+						cprint(LINE_CPU, 0, "Celeron");
+						off = 7;
+					} else {
+						cprint(LINE_CPU, 0, "Pentium II");
+						off = 10;
+					}
+					break;
+				case 6:
+					if (l2_cache == 128) {
+						cprint(LINE_CPU, 0, "Celeron");
+						off = 7;
+					} else {
+						cprint(LINE_CPU, 0, "Pentium II");
+						off = 10;
+					}
+					break;
+				case 7:
+				case 8:
+				case 10:
+				case 11:
+					if (l2_cache == 128) {
+						cprint(LINE_CPU, 0, "Celeron");
+						off = 7;
+					} else {
+						cprint(LINE_CPU, 0, "Pentium III");
+						off = 11;
+					}
+					break;
+				case 9:
+					if (l2_cache == 512) {
+						cprint(LINE_CPU, 0, "Celeron M (0.13)");
+					} else {
+						cprint(LINE_CPU, 0, "Pentium M (0.13)");
+					}
+					off = 16;
+					break;
+				case 13:
+					if (l2_cache == 1024) {
+						cprint(LINE_CPU, 0, "Celeron M (0.09)");
+					} else {
+						cprint(LINE_CPU, 0, "Pentium M (0.09)");
+					}
+					off = 16;
+					break;
 				}
 				break;
-			case 7:
-			case 8:
-			case 10:
-			case 11:
-				if (l2_cache == 128) {
-					cprint(LINE_CPU, 0, "Celeron");
-					off = 7;
+			case 15:
+				switch(cpu_id.model) {
+				case 0:
+				case 1:
+					if (l2_cache == 128) {
+						cprint(LINE_CPU, 0, "Celeron (0.18)");
+						off = 14;
+					} else if (cpu_id.pwrcap == 0x0B) {
+						cprint(LINE_CPU, 0, "Xeon DP (0.18)");
+						off = 14;
+					} else if (cpu_id.pwrcap == 0x0C) {
+						cprint(LINE_CPU, 0, "Xeon MP (0.18)");
+						off = 14;
+					} else {
+						cprint(LINE_CPU, 0, "Pentium 4 (0.18)");
+						off = 16;
+					}
+					break;
+				case 2:
+					if (l2_cache == 128) {
+						cprint(LINE_CPU, 0, "Celeron (0.13)");
+						off = 14;
+					} else if (cpu_id.pwrcap == 0x0B) {
+						cprint(LINE_CPU, 0, "Xeon DP (0.13)");
+						off = 14;
+					} else if (cpu_id.pwrcap == 0x0C) {
+						cprint(LINE_CPU, 0, "Xeon MP (0.13)");
+						off = 14;
+					} else {
+						cprint(LINE_CPU, 0, "Pentium 4 (0.13)");
+						off = 16;
+					}
+					break;
+				case 3:
+				case 4:
+				case 5:
+					if (l2_cache == 256) {
+						cprint(LINE_CPU, 0, "Celeron (0.09)");
+						off = 14;
+					} else if (cpu_id.pwrcap == 0x0B) {
+						cprint(LINE_CPU, 0, "Xeon DP (0.09)");
+						off = 14;
+					} else if (cpu_id.pwrcap == 0x0C) {
+						cprint(LINE_CPU, 0, "Xeon MP (0.09)");
+						off = 14;
+					} else {
+						cprint(LINE_CPU, 0, "Pentium 4 (0.09)");
+						off = 16;
+					}
+					break;
+				}
+				break;
+			}
+		}
+		break;
+
+	/* VIA/Cyrix/Centaur Processors with CPUID */
+	case 'C':
+		if ( cpu_id.vend_id[1] == 'e' ) {	/* CentaurHauls */
+			switch(cpu_id.type){
+			case 5:
+				cprint(LINE_CPU, 0, "Centaur 5x86");
+				off = 12;
+				break;
+			case 6: // VIA C3
+				if (cpu_id.step < 8) {
+					cprint(LINE_CPU, 0, "VIA C3 Samuel2");
+					off = 14;
 				} else {
-					cprint(LINE_CPU, 0, "Pentium III");
+					cprint(LINE_CPU, 0, "Via C3 Eden");
 					off = 11;
 				}
 				break;
-			case 9:
-				if (l2_cache == 512) {
-					cprint(LINE_CPU, 0, "Celeron M (0.13)");
-				} else {
-					cprint(LINE_CPU, 0, "Pentium M (0.13)");
-				}
-				off = 16;
-				break;
-			case 13:
-				if (l2_cache == 512) {
-					cprint(LINE_CPU, 0, "Celeron M (0.09)");
-				} else {
-					cprint(LINE_CPU, 0, "Pentium M (0.09)");
-				}
-				off = 16;
-				break;
 			}
-			break;
-		case 15:
-			switch(cpu_id.model) {
-			case 0:
-			case 1:			
-                                if (l2_cache == 128) {
-                                cprint(LINE_CPU, 0, "Celeron (0.18)");
-                                off = 14;	
-                                } else if (cpu_id.pwrcap == 0x0B) {
-                                cprint(LINE_CPU, 0, "Xeon DP (0.18)");
-                                off = 14;
-                                } else if (cpu_id.pwrcap == 0x0C) {
-                                cprint(LINE_CPU, 0, "Xeon MP (0.18)");
-                                off = 14;                                	
-                        	} else {
-                                cprint(LINE_CPU, 0, "Pentium 4 (0.18)");
-                                off = 16;
-                        	}
-				break;
-			case 2:
-                                if (l2_cache == 128) {
-                                cprint(LINE_CPU, 0, "Celeron (0.13)");
-                                off = 14;	
-                                } else if (cpu_id.pwrcap == 0x0B) {
-                                cprint(LINE_CPU, 0, "Xeon DP (0.13)");
-                                off = 14;
-                                } else if (cpu_id.pwrcap == 0x0C) {
-                                cprint(LINE_CPU, 0, "Xeon MP (0.13)");
-                                off = 14;                                	
-                        	} else {
-                                cprint(LINE_CPU, 0, "Pentium 4 (0.13)");
-                                off = 16;
-                        	}
-                                break;
-			case 3:
-			case 4:
+			l1_cache = cpu_id.cache_info[3] + cpu_id.cache_info[7];
+			l2_cache = cpu_id.cache_info[11];
+		} else {				/* CyrixInstead */
+			switch(cpu_id.type) {
 			case 5:
-                                if (l2_cache == 256) {
-                                cprint(LINE_CPU, 0, "Celeron (0.09)");
-                                off = 14;	
-                                } else if (cpu_id.pwrcap == 0x0B) {
-                                cprint(LINE_CPU, 0, "Xeon DP (0.09)");
-                                off = 14;
-                                } else if (cpu_id.pwrcap == 0x0C) {
-                                cprint(LINE_CPU, 0, "Xeon MP (0.09)");
-                                off = 14;                                	
-                        	} else {
-                                cprint(LINE_CPU, 0, "Pentium 4 (0.09)");
-                                off = 16;
-                        	}
-                                break;
-			}
-	                break;
+				switch(cpu_id.model) {
+				case 0:
+					cprint(LINE_CPU, 0, "Cyrix 6x86MX/MII");
+					off = 16;
+					break;
+				case 4:
+					cprint(LINE_CPU, 0, "Cyrix GXm");
+					off = 9;
+					break;
+				}
+				return;
 
-		}
-		break;
-
-	/* VIA/Cyrix Processors with CPUID */
-	case 'C':
-		switch(cpu_id.type) {
-		case 5:
-			switch(cpu_id.model) {
-			case 0:
-				cprint(LINE_CPU, 0, "Cyrix 6x86MX/MII");
-				off = 16;
-				break;
-			case 4:
-				cprint(LINE_CPU, 0, "Cyrix GXm");
-				off = 9;
-				break;
-		}
-		return;
-		break;
-		case 6: // VIA C3
-			switch(cpu_id.model) {
-			case 6:
-				cprint(LINE_CPU, 0, "Cyrix III");
-				off = 9;
-				break;
-			case 7:
-				if (cpu_id.step < 8) {
-				cprint(LINE_CPU, 0, "VIA C3 Samuel2");	off = 14;
-				} else {
-				cprint(LINE_CPU, 0, "VIA C3 Ezra-T");  off = 13;				
-				}	
-				break;
-			case 8:
-				cprint(LINE_CPU, 0, "VIA C3 Ezra-T");
-				off = 13;
-				break;
-			case 9:
-				cprint(LINE_CPU, 0, "VIA C3 Nehemiah");
-				off = 15;
+			case 6: // VIA C3
+				switch(cpu_id.model) {
+				case 6:
+					cprint(LINE_CPU, 0, "Cyrix III");
+					off = 9;
+					break;
+				case 7:
+					if (cpu_id.step < 8) {
+						cprint(LINE_CPU, 0, "VIA C3 Samuel2");
+						off = 14;
+					} else {
+						cprint(LINE_CPU, 0, "VIA C3 Ezra-T");
+						off = 13;
+					}
+					break;
+				case 8:
+					cprint(LINE_CPU, 0, "VIA C3 Ezra-T");
+					off = 13;
+					break;
+				case 9:
+					cprint(LINE_CPU, 0, "VIA C3 Nehemiah");
+					off = 15;
+					break;
+				}
+				// L1 = L2 = 64 KB from Cyrix III to Nehemiah
+				l1_cache = 64;
+				l2_cache = 64;
 				break;
 			}
-			// L1 = L2 = 64 KB from Cyrix III to Nehemiah
-			l1_cache = 64;
-			l2_cache = 64;
-			break;
 		}
 		break;
 
@@ -846,9 +894,9 @@ void cpu_type(void)
 	}
 
 	/* Record the starting time */
-        asm __volatile__ ("rdtsc":"=a" (v->startl),"=d" (v->starth));
-        v->snapl = v->startl;
-        v->snaph = v->starth;
+	asm __volatile__ ("rdtsc":"=a" (v->startl),"=d" (v->starth));
+	v->snapl = v->startl;
+	v->snaph = v->starth;
 	v->rdtsc = 1;
 	if (l1_cache == 0) { l1_cache = 66; }
 	if (l2_cache == 0) { l1_cache = 666; }
@@ -898,7 +946,7 @@ static void cacheable(void)
 /* #define TICKS 5 * 11832 (count = 6376)*/
 /* #define TICKS (65536 - 12752) */
 /* #define TICKS (65536 - 8271) */
-#define TICKS 59659
+#define TICKS	59659			/* Program counter to 50 ms = 59659 clks */
 
 /* Returns CPU clock in khz */
 static int cpuspeed(void)
@@ -907,7 +955,7 @@ static int cpuspeed(void)
 
 	/* Setup timer */
 	outb((inb(0x61) & ~0x02) | 0x01, 0x61);
-	outb(0xb0, 0x43); 
+	outb(0xb0, 0x43);
 	outb(TICKS & 0xff, 0x42);
 	outb(TICKS >> 8, 0x42);
 
@@ -949,11 +997,11 @@ static ulong memspeed(ulong src, ulong len, int iter)
 	for (i=0; i<iter; i++) {
 		asm __volatile__ (
 			"movl %0,%%esi\n\t" \
-       		 	"movl %1,%%edi\n\t" \
-       		 	"movl %2,%%ecx\n\t" \
-       		 	"cld\n\t" \
-       		 	"rep\n\t" \
-       		 	"movsl\n\t" \
+			"movl %1,%%edi\n\t" \
+			"movl %2,%%ecx\n\t" \
+			"cld\n\t" \
+			"rep\n\t" \
+			"movsl\n\t" \
 				:: "g" (src), "g" (dst), "g" (0)
 			: "esi", "edi", "ecx"
 		);
@@ -973,10 +1021,10 @@ static ulong memspeed(ulong src, ulong len, int iter)
 	asm __volatile__ (
 		"movl %0,%%esi\n\t" \
 		"movl %1,%%edi\n\t" \
-       	 	"movl %2,%%ecx\n\t" \
-       	 	"cld\n\t" \
-       	 	"rep\n\t" \
-       	 	"movsl\n\t" \
+		"movl %2,%%ecx\n\t" \
+		"cld\n\t" \
+		"rep\n\t" \
+		"movsl\n\t" \
 			:: "g" (src), "g" (dst), "g" (wlen)
 		: "esi", "edi", "ecx"
 	);
@@ -984,13 +1032,13 @@ static ulong memspeed(ulong src, ulong len, int iter)
 	/* Now measure the speed */
 	asm __volatile__ ("rdtsc":"=a" (st_low),"=d" (st_high));
 	for (i=0; i<iter; i++) {
-	        asm __volatile__ (
+		asm __volatile__ (
 			"movl %0,%%esi\n\t" \
-       	 		"movl %1,%%edi\n\t" \
-       	 		"movl %2,%%ecx\n\t" \
-       	 		"cld\n\t" \
-       	 		"rep\n\t" \
-       	 		"movsl\n\t" \
+			"movl %1,%%edi\n\t" \
+			"movl %2,%%ecx\n\t" \
+			"cld\n\t" \
+			"rep\n\t" \
+			"movsl\n\t" \
 				:: "g" (src), "g" (dst), "g" (wlen)
 			: "esi", "edi", "ecx"
 		);

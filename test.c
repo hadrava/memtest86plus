@@ -8,7 +8,7 @@
  * By Samuel DEMEULEMEESTER, sdemeule@memtest.org
  * http://www.x86-secret.com - http://www.memtest.org
  */
- 
+
 #include "test.h"
 #include "config.h"
 #include <sys/io.h>
@@ -42,12 +42,12 @@ void addr_tst1()
 
 	/* Test the global address bits */
 	for (p1=0, j=0; j<2; j++) {
-        	hprint(LINE_PAT, COL_PAT, p1);
+		hprint(LINE_PAT, COL_PAT, p1);
 
 		/* Set pattern in our lowest multiple of 0x20000 */
 		p = (ulong *)roundup((ulong)v->map[0].start, 0x1ffff);
 		*p = p1;
-	
+
 		/* Now write pattern compliment */
 		p1 = ~p1;
 		end = v->map[segs-1].end;
@@ -65,7 +65,7 @@ void addr_tst1()
 				*pt = p1;
 				if ((bad = *p) != ~p1) {
 					ad_err1((ulong *)p, (ulong *)mask,
-						bad, ~p1);
+					        bad, ~p1);
 					i = 1000;
 				}
 				mask = mask << 1;
@@ -84,7 +84,7 @@ void addr_tst1()
 		bank = 0x40000;
 	}
 	for (p1=0, k=0; k<2; k++) {
-        	hprint(LINE_PAT, COL_PAT, p1);
+		hprint(LINE_PAT, COL_PAT, p1);
 
 		for (j=0; j<segs; j++) {
 			p = v->map[j].start;
@@ -110,8 +110,8 @@ void addr_tst1()
 						*pt = p1;
 						if ((bad = *p) != ~p1) {
 							ad_err1((ulong *)p,
-							    (ulong *)mask,
-							    bad,~p1);
+							        (ulong *)mask,
+							        bad,~p1);
 							i = 200;
 						}
 						mask = mask << 1;
@@ -140,7 +140,7 @@ void addr_tst2()
 	volatile ulong *pe;
 	volatile ulong *end, *start;
 
-        cprint(LINE_PAT, COL_PAT, "        ");
+	cprint(LINE_PAT, COL_PAT, "        ");
 
 	/* Write each address with it's own address */
 	for (j=0; j<segs; j++) {
@@ -227,7 +227,7 @@ void addr_tst2()
 				"cmpl %%edx,%%edi\n\t"
 				"jb L91\n\t"
 				"jmp L94\n\t"
-			
+
 				"L93:\n\t"
 				"pushl %%edx\n\t"
 				"pushl %%ecx\n\t"
@@ -271,7 +271,7 @@ void movinvr()
 	}
 
 	/* Display the current seed */
-        hprint(LINE_PAT, COL_PAT, seed1);
+	hprint(LINE_PAT, COL_PAT, seed1);
 	rand_seed(seed1, seed2);
 	for (j=0; j<segs; j++) {
 		start = v->map[j].start;
@@ -300,19 +300,19 @@ void movinvr()
 			}
  */
 
-                        asm __volatile__ (
-                                "jmp L200\n\t"
-                                ".p2align 4,,7\n\t"
-                                "L200:\n\t"
-                                "call rand\n\t"
+			asm __volatile__ (
+				"jmp L200\n\t"
+				".p2align 4,,7\n\t"
+				"L200:\n\t"
+				"call rand\n\t"
 				"movl %%eax,(%%edi)\n\t"
-                                "addl $4,%%edi\n\t"
-                                "cmpl %%ebx,%%edi\n\t"
-                                "jb L200\n\t"
-                                : "=D" (p)
-                                : "D" (p), "b" (pe)
+				"addl $4,%%edi\n\t"
+				"cmpl %%ebx,%%edi\n\t"
+				"jb L200\n\t"
+				: "=D" (p)
+				: "D" (p), "b" (pe)
 				: "eax"
-                        );
+			);
 
 			do_tick();
 			BAILR
@@ -417,7 +417,7 @@ void movinv1(int iter, ulong p1, ulong p2)
 	volatile ulong *start,*end;
 
 	/* Display the current pattern */
-        hprint(LINE_PAT, COL_PAT, p1);
+	hprint(LINE_PAT, COL_PAT, p1);
 
 	/* Initialize memory with the initial pattern.  */
 	for (j=0; j<segs; j++) {
@@ -603,12 +603,15 @@ void movinv32(int iter, ulong p1, ulong lb, ulong hb, int sval, int off)
 	int i, j, k=0, done;
 	volatile ulong *pe;
 	volatile ulong *start, *end;
-	ulong pat = 0, p3;
+	ulong pat = 0;
 
-	p3 = sval << 31;
+/* CDH start
+ *	ulong p3 = sval << 31;
+ * CDH end
+ */
 
 	/* Display the current pattern */
-        hprint(LINE_PAT, COL_PAT, p1);
+	hprint(LINE_PAT, COL_PAT, p1);
 
 	/* Initialize memory with the initial pattern.  */
 	for (j=0; j<segs; j++) {
@@ -651,24 +654,18 @@ void movinv32(int iter, ulong p1, ulong lb, ulong hb, int sval, int off)
 				"jmp L20\n\t"
 				".p2align 4,,7\n\t"
 
+/* CDH start */
 				"L20:\n\t"
 				"movl %%ecx,(%%edi)\n\t"
-				"addl $1,%%ebx\n\t"
-				"cmpl $32,%%ebx\n\t"
-				"jne L21\n\t"
-				"movl %%esi,%%ecx\n\t"
-				"xorl %%ebx,%%ebx\n\t"
-				"jmp L22\n"
-				"L21:\n\t"
-				"shll $1,%%ecx\n\t"
-				"orl %%eax,%%ecx\n\t"
-				"L22:\n\t"
+				"incb %%bl\n\t"
 				"addl $4,%%edi\n\t"
+				"roll $1,%%ecx\n\t"
 				"cmpl %%edx,%%edi\n\t"
 				"jb L20\n\t"
-				: "=b" (k), "=D" (p)
-				: "D" (p),"d" (pe),"b" (k),"c" (pat),
-					"a" (sval), "S" (lb)
+				"andb $31,%%bl\n\t"
+				: "=b" (k), "=D" (p), "=c" (pat)
+				: "D" (p),"d" (pe),"b" (k),"c" (pat)
+/* CDH end */
 			);
 			do_tick();
 			BAILR
@@ -727,24 +724,18 @@ void movinv32(int iter, ulong p1, ulong lb, ulong hb, int sval, int off)
 					"cmpl %%ecx,%%ebp\n\t"
 					"jne L34\n\t"
 
+/* CDH start */
 					"L35:\n\t"
 					"notl %%ecx\n\t"
 					"movl %%ecx,(%%edi)\n\t"
 					"notl %%ecx\n\t"
-					"incl %%ebx\n\t"
-					"cmpl $32,%%ebx\n\t"
-					"jne L31\n\t"
-					"movl %%esi,%%ecx\n\t"
-					"xorl %%ebx,%%ebx\n\t"
-					"jmp L32\n"
-					"L31:\n\t"
-					"shll $1,%%ecx\n\t"
-					"orl %%eax,%%ecx\n\t"
-					"L32:\n\t"
 					"addl $4,%%edi\n\t"
+					"incb %%bl\n\t"
+					"roll $1,%%ecx\n\t"
 					"cmpl %%edx,%%edi\n\t"
 					"jb L30\n\t"
 					"jmp L33\n\t"
+/* CDH end */
 
 					"L34:\n\t" \
 					"pushl %%esi\n\t"
@@ -764,11 +755,13 @@ void movinv32(int iter, ulong p1, ulong lb, ulong hb, int sval, int off)
 					"popl %%esi\n\t"
 					"jmp L35\n"
 
+/* CDH start */
 					"L33:\n\t"
+					"andb $31,%%bl\n\t"
 					"popl %%ebp\n\t"
-					: "=b" (k), "=D" (p)
-					: "D" (p),"d" (pe),"b" (k),"c" (pat),
-						"a" (sval), "S" (lb)
+					: "=b" (k), "=D" (p), "=c" (pat)
+					: "D" (p),"d" (pe),"b" (k),"c" (pat)
+/* CDH end */
 				);
 				do_tick();
 				BAILR
@@ -778,13 +771,26 @@ void movinv32(int iter, ulong p1, ulong lb, ulong hb, int sval, int off)
 		/* Since we already adjusted k and the pattern this
 		 * code backs both up one step
 		 */
-    pat = lb;
-    if ( 0 != (k = (k-1) & 31) ) {
-           pat = (pat << k);
-           if ( sval )
-                 pat |= ((sval << k) - 1);
-    }
-		k++;
+/* CDH start */
+/* Original C code replaced with hand tuned assembly code
+ *		pat = lb;
+ *		if ( 0 != (k = (k-1) & 31) ) {
+ *			pat = (pat << k);
+ *			if ( sval )
+ *			pat |= ((sval << k) - 1);
+ *		}
+ *		k++;
+ */
+			asm __volatile__ (
+			"decl %%ecx\n\t"
+			"andl $31,%%ecx\n\t"
+			"roll %%cl,%%ebx\n\t"
+			"incb %%cl\n\t"
+			: "=c" (k), "=b" (pat)
+			: "c" (k), "b" (lb)
+			);
+/* CDH end */
+
 		for (j=segs-1; j>=0; j--) {
 			start = v->map[j].start;
 			end = v->map[j].end;
@@ -824,7 +830,7 @@ void movinv32(int iter, ulong p1, ulong lb, ulong hb, int sval, int off)
 					"pushl %%ebp\n\t"
 					"addl $4,%%edi\n\t"
 					"jmp L40\n\t"
-	
+
 					".p2align 4,,7\n\t"
 					"L40:\n\t"
 					"subl $4,%%edi\n\t"
@@ -833,22 +839,16 @@ void movinv32(int iter, ulong p1, ulong lb, ulong hb, int sval, int off)
 					"cmpl %%ecx,%%ebp\n\t"
 					"jne L44\n\t"
 
+/* CDH start */
 					"L45:\n\t"
 					"notl %%ecx\n\t"
 					"movl %%ecx,(%%edi)\n\t"
-					"decl %%ebx\n\t"
-					"cmpl $0,%%ebx\n\t"
-					"jg L41\n\t"
-					"movl %%esi,%%ecx\n\t"
-					"movl $32,%%ebx\n\t"
-					"jmp L42\n"
-					"L41:\n\t"
-					"shrl $1,%%ecx\n\t"
-					"orl %%eax,%%ecx\n\t"
-					"L42:\n\t"
+					"decb %%bl\n\t"
+					"rorl $1,%%ecx\n\t"
 					"cmpl %%edx,%%edi\n\t"
 					"ja L40\n\t"
 					"jmp L43\n\t"
+/* CDH end */
 
 					"L44:\n\t" \
 					"pushl %%esi\n\t"
@@ -868,12 +868,14 @@ void movinv32(int iter, ulong p1, ulong lb, ulong hb, int sval, int off)
 					"popl %%esi\n\t"
 					"jmp L45\n"
 
+/* CDH start */
 					"L43:\n\t"
+					"andb $31,%%bl\n\t"
 					"subl $4,%%edi\n\t"
 					"popl %%ebp\n\t"
 					: "=b" (k), "=D" (p), "=c" (pat)
-					: "D" (p),"d" (pe),"b" (k),"c" (pat),
-						"a" (p3), "S" (hb)
+					: "D" (p),"d" (pe),"b" (k),"c" (pat)
+/* CDH end */
 				);
 				do_tick();
 				BAILR
@@ -892,9 +894,9 @@ void modtst(int offset, int iter, ulong p1, ulong p2)
 	volatile ulong *start, *end;
 
 	/* Display the current pattern */
-  hprint(LINE_PAT, COL_PAT-2, p1);
+	hprint(LINE_PAT, COL_PAT-2, p1);
 	cprint(LINE_PAT, COL_PAT+6, "-");
-  dprint(LINE_PAT, COL_PAT+7, offset, 2, 1);
+	dprint(LINE_PAT, COL_PAT+7, offset, 2, 1);
 
 	/* Write every nth location with pattern */
 	for (j=0; j<segs; j++) {
@@ -1062,13 +1064,13 @@ void modtst(int offset, int iter, ulong p1, ulong p2)
 			BAILR
 		} while (!done);
 	}
-        cprint(LINE_PAT, COL_PAT, "          ");
+	cprint(LINE_PAT, COL_PAT, "          ");
 }
 
 
 
 /*
- * Test memory using block moves 
+ * Test memory using block moves
  * Adapted from Robert Redelmeier's burnBX test
  */
 void block_move(int iter)
@@ -1078,7 +1080,7 @@ void block_move(int iter)
 	volatile ulong p, pe, pp;
 	volatile ulong start, end;
 
-        cprint(LINE_PAT, COL_PAT-2, "          ");
+	cprint(LINE_PAT, COL_PAT-2, "          ");
 
 	/* Initialize memory with the initial pattern.  */
 	for (j=0; j<segs; j++) {
@@ -1146,7 +1148,7 @@ void block_move(int iter)
 		} while (!done);
 	}
 
-	/* Now move the data around 
+	/* Now move the data around
 	 * First move the data up half of the segment size we are testing
 	 * Then move the data to the original location + 32 bytes
 	 */
@@ -1213,7 +1215,7 @@ void block_move(int iter)
 		} while (!done);
 	}
 
-	/* Now check the data 
+	/* Now check the data
 	 * The error checking is rather crude.  We just check that the
 	 * adjacent words are the same.
 	 */
@@ -1324,7 +1326,7 @@ void bit_fade()
 			pe = start;
 			p = start;
 			for (p=end; p<end; p++) {
- 				if ((bad=*p) != p1) {
+				if ((bad=*p) != p1) {
 					error((ulong*)p, p1, bad);
 				}
 			}
@@ -1352,8 +1354,7 @@ void error(ulong *adr, ulong good, ulong bad)
 #ifdef USB_WAR
 	/* Skip any errrors that appear to be due to the BIOS using location
 	 * 0x4e0 for USB keyboard support.  This often happens with Intel
-   dir
-   * 810, 815 and 820 chipsets.  It is possible that we will skip
+	 * 810, 815 and 820 chipsets.  It is possible that we will skip
 	 * a real error but the odds are very low.
 	 */
 	if ((ulong)adr == 0x4e0 || (ulong)adr == 0x410) {
@@ -1378,7 +1379,7 @@ void error(ulong *adr, ulong good, ulong bad)
 	} else if (v->printmode == PRINTMODE_PATTERNS) {
 		print_err_counts();
 
-		if (patnchg) { 
+		if (patnchg) {
 			printpatn();
 		}
 	}
@@ -1434,7 +1435,7 @@ void ad_err2(ulong *adr, ulong bad)
 		print_err(adr, (ulong)adr, bad, ((ulong)adr) ^ bad);
 	} else if (v->printmode == PRINTMODE_PATTERNS) {
 		print_err_counts();
-		if (patnchg) { 
+		if (patnchg) {
 			printpatn();
 		}
 	}
@@ -1451,12 +1452,12 @@ void print_hdr(void)
 static void update_err_counts(void)
 {
 	++(v->ecount);
-	
+
 	if (beepmode){
-	beep(600);
-	beep(1000);
+		beep(600);
+		beep(1000);
 	}
-	
+
 	tseq[v->test].errors++;
 }
 
@@ -1464,20 +1465,20 @@ static void print_err_counts(void)
 {
 	int i;
 	char *pp;
-	
+
 	dprint(LINE_INFO, COL_ERR, v->ecount, 6, 0);
 	dprint(LINE_INFO, COL_ECC_ERR, v->ecc_ecount, 6, 0);
 
 	/* Paint the error messages on the screen red to provide a vivid */
-	/* indicator that an error has occured */ 
+	/* indicator that an error has occured */
 	if (v->msg_line < 24) {
 		for(i=0, pp=(char *)((SCREEN_ADR+v->msg_line*160+1));
 				 i<76; i++, pp+=2) {
 			*pp = 0x47;
 		}
 	}
-	
-	
+
+
 }
 
 static void common_err(ulong page, ulong offset)
@@ -1502,14 +1503,14 @@ static void common_err(ulong page, ulong offset)
 /*
  * Print an individual error
  */
-void print_err( ulong *adr, ulong good, ulong bad, ulong xor) 
+void print_err( ulong *adr, ulong good, ulong bad, ulong xor)
 {
 	ulong page, offset;
 
 	page = page_of(adr);
 	offset = ((unsigned long)adr) & 0xFFF;
 	common_err(page, offset);
-	
+
 
 	ecount = 1;
 	hprint(v->msg_line, 36, good);
@@ -1523,7 +1524,7 @@ void print_err( ulong *adr, ulong good, ulong bad, ulong xor)
 /*
  * Print an ecc error
  */
-void print_ecc_err(unsigned long page, unsigned long offset, 
+void print_ecc_err(unsigned long page, unsigned long offset,
 	int corrected, unsigned short syndrome, int channel)
 {
 	if (!corrected) {update_err_counts();}
@@ -1533,10 +1534,10 @@ void print_ecc_err(unsigned long page, unsigned long offset,
 	}
 	common_err(page, offset);
 
-	cprint(v->msg_line, 36, 
+	cprint(v->msg_line, 36,
 		corrected?"corrected           ": "uncorrected         ");
 	hprint2(v->msg_line, 60, syndrome, 4);
-	cprint(v->msg_line, 68, "ECC"); 
+	cprint(v->msg_line, 68, "ECC");
 	dprint(v->msg_line, 74, channel, 2, 0);
 }
 
@@ -1544,7 +1545,7 @@ void print_ecc_err(unsigned long page, unsigned long offset,
 /*
  * Print a parity error message
  */
-void parity_err( unsigned long edi, unsigned long esi) 
+void parity_err( unsigned long edi, unsigned long esi)
 {
 	unsigned long addr;
 
@@ -1568,36 +1569,36 @@ void parity_err( unsigned long edi, unsigned long esi)
  */
 void printpatn (void)
 {
-       int idx=0;
-       int x;
+	int idx=0;
+	int x;
 
 	/* Check for keyboard input */
 	check_input();
 
-       if (v->numpatn == 0)
-               return;
+	if (v->numpatn == 0)
+		return;
 
-       scroll();
+	scroll();
 
-       cprint (v->msg_line, 0, "badram=");
-       x=7;
+	cprint (v->msg_line, 0, "badram=");
+	x=7;
 
-       for (idx = 0; idx < v->numpatn; idx++) {
+	for (idx = 0; idx < v->numpatn; idx++) {
 
-               if (x > 80-22) {
-                       scroll();
-                       x=7;
-               }
-               cprint (v->msg_line, x, "0x");
-               hprint (v->msg_line, x+2,  v->patn[idx].adr );
-               cprint (v->msg_line, x+10, ",0x");
-               hprint (v->msg_line, x+13, v->patn[idx].mask);
-               if (idx+1 < v->numpatn)
-                       cprint (v->msg_line, x+21, ",");
-               x+=22;
-       }
+		if (x > 80-22) {
+			scroll();
+			x=7;
+		}
+		cprint (v->msg_line, x, "0x");
+		hprint (v->msg_line, x+2,  v->patn[idx].adr );
+		cprint (v->msg_line, x+10, ",0x");
+		hprint (v->msg_line, x+13, v->patn[idx].mask);
+		if (idx+1 < v->numpatn)
+			cprint (v->msg_line, x+21, ",");
+		x+=22;
+	}
 }
-	
+
 /*
  * Show progress by displaying elapsed time and update bar graphs
  */
@@ -1608,7 +1609,7 @@ void do_tick(void)
 
 	/* FIXME only print serial error messages from the tick handler */
 	if (v->ecount) {
-	print_err_counts();
+		print_err_counts();
 	}
 
 	nticks++;
@@ -1624,7 +1625,7 @@ void do_tick(void)
 		cprint(1, COL_MID+9+v->tptr, "#");
 		v->tptr++;
 	}
-	
+
 	pct = 100*v->total_ticks/v->pass_ticks;
 	dprint(0, COL_MID+4, pct, 3, 0);
 	i = (BAR_SIZE * pct) / 100;
@@ -1674,7 +1675,7 @@ void sleep(int n, int sms)
 {
 	int i, ip;
 	ulong sh, sl, l, h, t;
-	
+
 	ip = 0;
 	/* save the starting time */
 	asm __volatile__(
@@ -1690,15 +1691,15 @@ void sleep(int n, int sms)
 			:"=a" (l), "=d" (h)
 			:"g" (sl), "g" (sh),
 			"0" (l), "1" (h));
-		
+
 		if (sms != 0) {
-		t = h * ((unsigned)0xffffffff / v->clks_msec);
-		t += (l / v->clks_msec);
+			t = h * ((unsigned)0xffffffff / v->clks_msec);
+			t += (l / v->clks_msec);
 		} else {
-		t = h * ((unsigned)0xffffffff / v->clks_msec) / 1000;
-		t += (l / v->clks_msec) / 1000;
+			t = h * ((unsigned)0xffffffff / v->clks_msec) / 1000;
+			t += (l / v->clks_msec) / 1000;
 		}
-	
+
 		/* Is the time up? */
 		if (t >= n) {
 			break;
@@ -1706,23 +1707,23 @@ void sleep(int n, int sms)
 
 		/* Display the elapsed time on the screen */
 		if (sms == 0) {
-		
-		i = t % 60;
-		dprint(LINE_TIME, COL_TIME+9, i%10, 1, 0);
-		dprint(LINE_TIME, COL_TIME+8, i/10, 1, 0);
+
+			i = t % 60;
+			dprint(LINE_TIME, COL_TIME+9, i%10, 1, 0);
+			dprint(LINE_TIME, COL_TIME+8, i/10, 1, 0);
 
 			if (i != ip) {
-		    		check_input();
-		    		ip = i;
+				check_input();
+				ip = i;
 			}
 
-		t /= 60;
-		i = t % 60;
-		dprint(LINE_TIME, COL_TIME+6, i % 10, 1, 0);
-		dprint(LINE_TIME, COL_TIME+5, i / 10, 1, 0);
-		t /= 60;
-		dprint(LINE_TIME, COL_TIME, t, 4, 0);
-		BAILR
+			t /= 60;
+			i = t % 60;
+			dprint(LINE_TIME, COL_TIME+6, i % 10, 1, 0);
+			dprint(LINE_TIME, COL_TIME+5, i / 10, 1, 0);
+			t /= 60;
+			dprint(LINE_TIME, COL_TIME, t, 4, 0);
+			BAILR
 		}
 	}
 }
@@ -1732,20 +1733,20 @@ void sleep(int n, int sms)
 void beep(unsigned int frequency)
 {
 	unsigned int count = 1193180 / frequency;
-	
+
 	// Switch on the speaker
 	outb_p(inb_p(0x61)|3, 0x61);
-	
+
 	// Set command for counter 2, 2 byte write
 	outb_p(0xB6, 0x43);
-	
+
 	// Select desired Hz
 	outb_p(count & 0xff, 0x42);
 	outb((count >> 8) & 0xff, 0x42);
-	
+
 	// Block for 100 microseconds
 	sleep(100, 1);
-	
+
 	// Switch off the speaker
 	outb(inb_p(0x61)&0xFC, 0x61);
 }
