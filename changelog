@@ -1,11 +1,11 @@
-Memtest86+ V1.51
+Memtest86+ V1.55
 
 Enhancements :
-- Added support for Intel i955X (Glenwood)
-- Added support for nVidia nForce4
+- Added support for Intel E7221
+- Added support for nForce 4 Intel Edition
+- Added detection for ATi Radeon Xpress 200
+- Added ECC polling for Intel E7221
 
 Bug Fixes :
-- Fix a bug on K8 chipset recognition
-- Fix Dual channcel not detected on i865/875
-  (Bug added in V1.50)
+- More precise detection of K8 Memory Freq.
 - Some minor bug fixes.
