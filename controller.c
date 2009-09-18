@@ -1017,16 +1017,16 @@ static void poll_fsb_amd64(void) {
 			clockratio = (int)(coef * 2.0f);
 			break;
 		case 0x2:
-			clockratio = (int)(coef * 3.0f/2.0f) + 0.81f;
+			clockratio = (int)((coef * 3.0f/2.0f) + 0.81f);
 			break;
 		case 0x4:
-			clockratio = (int)(coef * 4.0f/3.0f) + 0.81f;
+			clockratio = (int)((coef * 4.0f/3.0f) + 0.81f);
 			break;
 		case 0x5:
-			clockratio = (int)(coef * 6.0f/5.0f) + 0.81f;
+			clockratio = (int)((coef * 6.0f/5.0f) + 0.81f);
 			break;
 		case 0x6:
-			clockratio = (int)(coef * 10.0f/9.0f) + 0.81f;
+			clockratio = (int)((coef * 10.0f/9.0f) + 0.81f);
 			break;
 		case 0x7:
 			clockratio = (int)(coef + 0.81f);
