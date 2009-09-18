@@ -2,17 +2,35 @@
  *
  * Released under version 2 of the Gnu Public License.
  * By Chris Brady, cbrady@sgi.com
- */
+ * ----------------------------------------------------
+ * MemTest86+ V2.00 Specific code (GPL V2.0)
+ * By Samuel DEMEULEMEESTER, sdemeule@memtest.org
+ * http://www.canardplus.com - http://www.memtest.org
+*/
+ 
 #include "io.h"
 #include "serial.h"
 #include "test.h"
 #include "config.h"
 #include "screen_buffer.h"
 
-extern int fast_mode;
 
 int slock = 0, lsr = 0;
 short serial_cons = SERIAL_CONSOLE_DEFAULT;
+
+#if SERIAL_TTY != 0 && SERIAL_TTY != 1
+#error Bad SERIAL_TTY. Only ttyS0 and ttyS1 are supported.
+#endif
+short serial_tty = SERIAL_TTY;
+const short serial_base_ports[] = {0x3f8, 0x2f8};
+
+#if ((115200%SERIAL_BAUD_RATE) != 0)
+#error Bad default baud rate
+#endif
+int serial_baud_rate = SERIAL_BAUD_RATE;
+unsigned char serial_parity = 0;
+unsigned char serial_bits = 8;
+
 char buf[18];
 
 struct ascii_map_str {
@@ -71,6 +89,20 @@ int memcmp(const void *s1, const void *s2, ulong count)
 	return 0;
 }
 
+int strncmp(const char *s1, const char *s2, ulong n) {
+	signed char res = 0;
+	while (n) {
+		res = *s1 - *s2;
+		if (res != 0)
+			return res;
+		if (*s1 == '\0')
+			return 0;
+		++s1, ++s2;
+		--n;
+	}
+	return res;
+}
+
 void *memmove(void *dest, const void *src, ulong n)
 {
 	long i;
@@ -89,6 +121,52 @@ void *memmove(void *dest, const void *src, ulong n)
 	}
 	return dest;
 }
+
+char toupper(char c)
+{
+	if (c >= 'a' && c <= 'z')
+		return c + 'A' -'a';
+	else
+		return c;
+}
+
+int isdigit(char c)
+{
+	return c >= '0' && c <= '9';
+}
+
+int isxdigit(char c)
+{
+	return isdigit(c) || (toupper(c) >= 'A' && toupper(c) <= 'F'); }
+
+unsigned long simple_strtoul(const char *cp, char **endp, unsigned int base) {
+	unsigned long result = 0, value;
+
+	if (!base) {
+		base = 10;
+		if (*cp == '0') {
+			base = 8;
+			cp++;
+			if (toupper(*cp) == 'X' && isxdigit(cp[1])) {
+				cp++;
+				base = 16;
+			}
+		}
+	} else if (base == 16) {
+		if (cp[0] == '0' && toupper(cp[1]) == 'X')
+			cp += 2;
+	}
+	while (isxdigit(*cp) &&
+		(value = isdigit(*cp) ? *cp-'0' : toupper(*cp)-'A'+10) < base) {
+		result = result*base + value;
+		cp++;
+	}
+	if (endp)
+		*endp = (char *)cp;
+	return result;
+}
+
+
 /*
  * Scroll the error message area of the screen as needed
  * Starts at line LINE_SCROLL and ends at line 23
@@ -123,6 +201,21 @@ void scroll(void)
 		}
 		tty_print_region(LINE_SCROLL, 0, 23, 79);
 	}
+}
+
+/*
+ * Clear scroll region
+ */
+void clear_scroll(void)
+{
+	int i;
+	char *s;
+
+	s = (char*)(SCREEN_ADR+LINE_HEADER*160);
+        for(i=0; i<80*(24-LINE_HEADER); i++) {
+                *s++ = ' ';
+                *s++ = 0x17;
+        }
 }
 
 /*
@@ -611,21 +704,7 @@ ulong getval(int x, int y, int result_shift)
 	shift -= result_shift;
 
 	/* Compute our current value */
-	val = 0;
-	for(i = (base == 16)? 2: 0; i < n; i++) {
-		unsigned long digit = 0;
-		if ((buf[i] >= '0') && (buf[i] <= '9')) {
-			digit = buf[i] - '0';
-		}
-		else if ((buf[i] >= 'a') && (buf[i] <= 'f')) {
-			digit = buf[i] - 'a' + 10;
-		}
-		else {
-				/* It must be a suffix byte */
-			break;
-		}
-		val = (val * base) + digit;
-	}
+	val = simple_strtoul(buf, NULL, base);
 	if (shift > 0) {
 		if (shift >= 32) {
 			val = 0xffffffff;
@@ -661,19 +740,11 @@ void ttyprint(int y, int x, const char *p)
 	serial_echo_print(p);
 }
 
-#if defined(SERIAL_BAUD_RATE)
-
-#if ((115200%SERIAL_BAUD_RATE) != 0)
-#error Bad ttys0 baud rate
-#endif
-
-#define SERIAL_DIV     (115200/SERIAL_BAUD_RATE)
-
-#endif /* SERIAL_BAUD_RATE */
 
 void serial_echo_init(void)
 {
-	int comstat, hi, lo;
+	int comstat, hi, lo, serial_div;
+	unsigned char lcr;
 
 	/* read the Divisor Latch */
 	comstat = serial_echo_inb(UART_LCR);
@@ -683,13 +754,14 @@ void serial_echo_init(void)
 	serial_echo_outb(comstat, UART_LCR);
 
 	/* now do hardwired init */
-	serial_echo_outb(0x03, UART_LCR); /* No parity, 8 data bits, 1 stop */
-#if defined(SERIAL_BAUD_RATE)
-	serial_echo_outb(0x83, UART_LCR); /* Access divisor latch */
-	serial_echo_outb(SERIAL_DIV & 0xff, UART_DLL);  /* baud rate divisor */
-	serial_echo_outb((SERIAL_DIV>> 8) & 0xff, UART_DLM);
-	serial_echo_outb(0x03, UART_LCR); /* Done with divisor */
-#endif
+	lcr = serial_parity | (serial_bits - 5);
+	serial_echo_outb(lcr, UART_LCR); /* No parity, 8 data bits, 1 stop */
+	serial_div = 115200 / serial_baud_rate;
+	serial_echo_outb(0x80|lcr, UART_LCR); /* Access divisor latch */
+	serial_echo_outb(serial_div & 0xff, UART_DLL);  /* baud rate divisor */
+	serial_echo_outb((serial_div >> 8) & 0xff, UART_DLM);
+	serial_echo_outb(lcr, UART_LCR); /* Done with divisor */
+
 
 	/* Prior to disabling interrupts, read the LSR and RBR
 	 * registers */
@@ -914,6 +986,97 @@ void wait_keyup( void ) {
 		}
 	}
 }
+
+
+/*
+ * Handles "console=<param>" command line option
+ *
+ * Examples of accepted params:
+ *   ttyS0
+ *   ttyS1
+ *   ttyS0,115200
+ *   ttyS0,9600e8
+ */
+void serial_console_setup(char *param)
+{
+	char *option, *end;
+	unsigned long tty;
+	unsigned long baud_rate;
+	unsigned char parity, bits;
+
+	if (strncmp(param, "ttyS", 4))
+		return;   /* not a serial port */
+
+	param += 4;
+
+	tty = simple_strtoul(param, &option, 10);
+
+	if (option == param)
+		return;   /* there were no digits */
+
+	if (tty > 1)
+		return;   /* only ttyS0 and ttyS1 supported */
+
+	if (*option == '\0')
+		goto save_tty; /* no options given, just ttyS? */
+
+	if (*option != ',')
+		return;  /* missing the comma separator */
+
+	/* baud rate must follow */
+	option++;
+	baud_rate = simple_strtoul(option, &end, 10);
+
+	if (end == option)
+		return;  /* no baudrate after comma */
+
+	if (baud_rate == 0 || (115200 % baud_rate) != 0)
+		return;  /* wrong baud rate */
+
+	if (*end == '\0')
+		goto save_baud_rate;  /* no more options given */
+
+	switch (toupper(*end)) {
+		case 'N':
+			parity = 0;
+			break;
+		case 'O':
+			parity = UART_LCR_PARITY;
+			break;
+		case 'E':
+			parity = UART_LCR_PARITY | UART_LCR_EPAR;
+			break;
+		default:
+			/* Unknown parity */
+			return;
+	}
+
+	end++;
+	if (*end == '\0')
+		goto save_parity;
+
+	/* word length (bits) */
+	if (*end < '7' || *end > '8')
+		return;  /* invalid number of bits */
+
+	bits = *end - '0';
+
+	end++;
+
+	if (*end != '\0')
+		return;  /* garbage at the end */
+
+	serial_bits = bits;
+	save_parity:
+	serial_parity = parity;
+	save_baud_rate:
+	serial_baud_rate = (int) baud_rate;
+  save_tty:
+	serial_tty = (short) tty;
+	serial_cons = 1;
+}
+
+
 #ifdef LP
 #define DATA            0x00
 #define STATUS          0x01

@@ -30,6 +30,7 @@
 #define X86_CACHE	24
 #define X86_PWRCAP 40
 #define X86_EXT	44
+#define X86_FFL	48
 
 	.code32
 	.globl startup_32
@@ -345,7 +346,8 @@ have_cpuid:
 	# CDH end
 	#
 
-	movl  %eax, X86_EXT(%esi) #save complete extended CPUID to X86_EXT
+	movl  %eax, X86_EXT(%esi) # save complete extended CPUID to X86_EXT
+	movl  %ecx, X86_FFL(%esi) # save ECX Feature Flags to X86_FFL
 	movb	%al, %cl		# save reg for future use
 	andb	$0x0f, %ah		# mask processor family
 	movb	%ah, X86(%esi)

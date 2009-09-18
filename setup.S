@@ -21,6 +21,7 @@ start:
 	movb	$0x80, %al	# disable NMI for the bootup sequence
 	outb	%al, $0x70
 
+
 # The system will move itself to its rightful place.
 
 	push	%cs
@@ -29,7 +30,6 @@ start:
 	lgdt	gdt_48 - start	# load gdt with whatever appropriate
 
 # that was painless, now we enable A20
-
 	call    empty_8042
 
 	movb	$0xD1, %al	# command write

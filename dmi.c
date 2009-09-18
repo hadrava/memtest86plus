@@ -14,9 +14,6 @@
 #include <stdint.h>
 
 
-#define DMI_SEARCH_START  0x0000F000
-#define DMI_SEARCH_LENGTH 0x000F0FFF
-#define MAX_DMI_MEMDEVS 32
 #define round_up(x,y) (((x) + (y) - 1) & ~((y)-1))
 #define round_down(x,y) ((x) & ~((y)-1))
 
@@ -104,8 +101,8 @@ struct mem_dev * mem_devs[MAX_DMI_MEMDEVS];
 int mem_devs_count=0;
 struct md_map * md_maps[MAX_DMI_MEMDEVS];
 int md_maps_count=0;
-int bad_devs[MAX_DMI_MEMDEVS];
-int dmi_initialized=0;
+int dmi_err_cnts[MAX_DMI_MEMDEVS];
+short dmi_initialized=0;
 
 int strlen(char * string){
 	int i=0;
@@ -192,7 +189,7 @@ int open_dmi(void){
 void init_dmi(void){
 	int i;
 	for(i=0; i < MAX_DMI_MEMDEVS; i++)
-		bad_devs[i]=0;
+		dmi_err_cnts[i]=0;
 	open_dmi();
 	dmi_initialized=1;
 }
@@ -296,10 +293,10 @@ int add_dmi_err(ulong adr){
 		for(j=0; j < mem_devs_count; j++){
 			if (mem_devs[j]->header.handle != md_maps[i]->md_handle)
 				continue;
-			if (bad_devs[j]){
+			if (dmi_err_cnts[j]){
 				found=0;
 			}else{
-				found = bad_devs[j] = 1;
+				found = dmi_err_cnts[j] = 1;
 			}
 		}
 	}
@@ -316,7 +313,7 @@ void print_dmi_err(void){
 	cprint(v->msg_line, 0,"Bad Memory Devices: ");
 	of=20;
 	for ( i=count=0; i < MAX_DMI_MEMDEVS; i++){
-		if (!bad_devs[i])
+		if (!dmi_err_cnts[i])
 			continue;
 		struct mem_dev *md = mem_devs[i];
 		if(count++){

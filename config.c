@@ -1,4 +1,4 @@
-/* config.c - MemTest-86  Version 3.2
+/* config.c - MemTest-86  Version 3.4
  *
  * Released under version 2 of the Gnu Public License.
  * By Chris Brady
@@ -17,6 +17,7 @@ extern int bail, beepmode;
 extern struct tseq tseq[];
 extern short e820_nr;
 extern char memsz_mode;
+//void performance();
 
 char save[2][POP_H][POP_W];
 char save2[2][POP2_H][POP2_W];
@@ -30,16 +31,16 @@ void get_config()
 	popup();
 	wait_keyup();
 	while(!flag) {
-		cprint(POP_Y+1,  POP_X+2, "Configuration:");
+		cprint(POP_Y+1,  POP_X+2, "Settings:");
 		cprint(POP_Y+3,  POP_X+6, "(1) Test Selection");
 		cprint(POP_Y+4,  POP_X+6, "(2) Address Range");
 		cprint(POP_Y+5,  POP_X+6, "(3) Memory Sizing");
-		cprint(POP_Y+6,  POP_X+6, "(4) Error Summary");
-		cprint(POP_Y+7,  POP_X+6, "(5) Error Report Mode");
+		cprint(POP_Y+6,  POP_X+6, "(4) Error Report Mode");
+		cprint(POP_Y+7,  POP_X+6, "(5) Show DMI Memory Info");
 		cprint(POP_Y+8,  POP_X+6, "(6) ECC Mode"); 
 		cprint(POP_Y+9,  POP_X+6, "(7) Restart");
 		cprint(POP_Y+10, POP_X+6, "(8) Refresh Screen");
-		cprint(POP_Y+11, POP_X+6, "(9) Adv. Options");
+		cprint(POP_Y+11, POP_X+6, "(9) Display SPD Data");
 		cprint(POP_Y+12, POP_X+6, "(0) Continue");
 
 		/* Wait for key release */
@@ -54,7 +55,7 @@ void get_config()
 			cprint(POP_Y+4, POP_X+6, "(2) Skip Current Test");
 			cprint(POP_Y+5, POP_X+6, "(3) Select Test");
 			cprint(POP_Y+6, POP_X+6, "(4) Select Bit Fade Test");
-			cprint(POP_Y+7, POP_X+6, "(5) Select Uncached Test");
+			//cprint(POP_Y+7, POP_X+6, "(5) Select Uncached Test");
 			cprint(POP_Y+8, POP_X+6, "(0) Continue");
 			if (v->testsel < 0) {
 				cprint(POP_Y+3, POP_X+5, ">");
@@ -66,7 +67,7 @@ void get_config()
 				switch(get_key()) {
 				case 2:
 					/* Default */
-					if (v->testsel > 8) {
+					if (v->testsel >= 9) {
 						bail++;
 					}
 					v->testsel = -1;
@@ -85,9 +86,9 @@ void get_config()
 					cprint(POP_Y+1, POP_X+3,
 						"Test Selection:");
 					cprint(POP_Y+4, POP_X+5,
-						"Test Number [0-10]: ");
+						"Test Number [0-9]: ");
 					i = getval(POP_Y+4, POP_X+24, 0);
-					if (i <= 10) {
+					if (i <= 9) {
 						if (i != v->testsel) {
 							v->pass = -1;
 							v->test = -1;
@@ -112,6 +113,7 @@ void get_config()
 					cprint(LINE_INFO, COL_TST, "#");
 					dprint(LINE_INFO, COL_TST+1, 9, 3, 1);
 					break;
+/*
 				case 6:
 					if (v->testsel != 10) {
 						v->pass = -1;
@@ -124,6 +126,7 @@ void get_config()
 					cprint(LINE_INFO, COL_TST, "#");
 					dprint(LINE_INFO, COL_TST+1, 10, 3, 1);
 					break;
+*/					
 				case 11:
 				case 57:
 					sflag++;
@@ -156,6 +159,7 @@ void get_config()
 					page = getval(POP_Y+6, POP_X+9, 12);
 					if (page + 1 <= v->plim_upper) {
 						v->plim_lower = page;
+						v->test--;
 						bail++;
 					}
 					adj_mem();
@@ -175,6 +179,7 @@ void get_config()
 					page = getval(POP_Y+6, POP_X+9, 12);
 					if  (page - 1 >= v->plim_lower) {
 						v->plim_upper = page;
+						v->test--;
 						bail++;
 					}
 					adj_mem();
@@ -185,6 +190,7 @@ void get_config()
 					/* All of memory */
 					v->plim_lower = 0;
 					v->plim_upper = v->pmap[v->msegs - 1].end;
+					v->test--;
 					bail++;
 					adj_mem();
 					find_ticks();
@@ -225,40 +231,19 @@ void get_config()
 					memsz_mode = SZ_MODE_BIOS;
 					wait_keyup();
 					restart();
-/*
-					mem_size();
-					v->test = 0;
-					v->pass = 0;
-					v->total_ticks = 0;
-					bail++;
-					sflag++;
-*/
+
 					break;
 				case 3:
 					memsz_mode = SZ_MODE_BIOS_RES;
 					wait_keyup();
 					restart();
-/*
-					mem_size();
-					v->test = 0;
-					v->pass = 0;
-					v->total_ticks = 0;
-					bail++;
-					sflag++;
-*/
+
 					break;
 				case 4:
 					memsz_mode = SZ_MODE_PROBE;
 					wait_keyup();
 					restart();
-/*
-					mem_size();
-					v->test = 0;
-					v->pass = 0;
-					v->total_ticks = 0;
-					bail++;
-					sflag++;
-*/
+
 					break;
 				case 11:
 				case 57:
@@ -270,68 +255,60 @@ void get_config()
 			popclear();
 			break;
 		case 5:
-			/* 4 - Show error summary */
-			popclear();
-			for (i=0; tseq[i].msg != NULL; i++) {
-				cprint(POP_Y+1+i, POP_X+2, "Test:");
-				dprint(POP_Y+1+i, POP_X+8, i, 2, 1);
-				cprint(POP_Y+1+i, POP_X+12, "Errors:");
-				dprint(POP_Y+1+i, POP_X+20, tseq[i].errors,
-					5, 1);
-			}
-			wait_keyup();
-			while (get_key() == 0);
-			popclear();
-			break;
-		case 6:
-			/* 5 - Printing Mode */
+			/* 4 - Show error Mode */
 			popclear();
 			cprint(POP_Y+1, POP_X+2, "Printing Mode:");
-			cprint(POP_Y+3, POP_X+6, "(1) Individual Errors");
-			cprint(POP_Y+4, POP_X+6, "(2) BadRAM Patterns");
-			cprint(POP_Y+5, POP_X+6, "(3) DMI Device Name");
+			cprint(POP_Y+3, POP_X+6, "(1) Error Summary");
+			cprint(POP_Y+4, POP_X+6, "(2) Individual Errors");
+			cprint(POP_Y+5, POP_X+6, "(3) BadRAM Patterns");
 			cprint(POP_Y+6, POP_X+6, "(4) Error Counts Only");
-			cprint(POP_Y+7, POP_X+6, "(5) Beep on Error");
-			cprint(POP_Y+8, POP_X+6, "(6) Show DMI Memory Info");
-			cprint(POP_Y+9, POP_X+6, "(0) Cancel");
+			cprint(POP_Y+7, POP_X+6, "(5) DMI Device Name");
+			cprint(POP_Y+8, POP_X+6, "(6) Beep on Error");
+			cprint(POP_Y+10, POP_X+6, "(0) Cancel");
 			cprint(POP_Y+3+v->printmode, POP_X+5, ">");
-			if (beepmode) { cprint(POP_Y+7, POP_X+5, ">"); }
+			if (beepmode) { cprint(POP_Y+8, POP_X+5, ">"); }
 			wait_keyup();
 			while (!sflag) {
-				switch(get_key()) {
+								switch(get_key()) {
 				case 2:
-					/* Separate Addresses */
-					v->printmode=PRINTMODE_ADDRESSES;
-					v->eadr = 0;
+					/* Error Summary */
+					v->printmode=PRINTMODE_SUMMARY;
+					v->erri.eadr = 0;
+					v->erri.hdr_flag = 0;
 					sflag++;
 					break;
 				case 3:
+					/* Separate Addresses */
+					v->printmode=PRINTMODE_ADDRESSES;
+					v->erri.eadr = 0;
+					v->erri.hdr_flag = 0;
+					v->msg_line = LINE_SCROLL-1;
+					sflag++;
+					break;
+				case 4:
 					/* BadRAM Patterns */
 					v->printmode=PRINTMODE_PATTERNS;
+					v->erri.hdr_flag = 0;
 					sflag++;
 					prt++;
 					break;
-				case 4:
-					/* DMI Devices */
-					v->printmode=PRINTMODE_DMI;
-					sflag++;
-					break;
-			        case 5:
+				case 5:
 					/* Error Counts Only */
 					v->printmode=PRINTMODE_NONE;
+					v->erri.hdr_flag = 0;
 					sflag++;
 					break;
 				case 6:
-					/* Set Beep On Error mode */
-					beepmode = !beepmode;
+					/* Error Counts Only */
+					v->printmode=PRINTMODE_DMI;
+					v->erri.hdr_flag = 0;
 					sflag++;
 					break;
 				case 7:
-					/* Display DMI Memory Info */
-					pop2up();
-					print_dmi_info();
-					pop2down();
-					break;
+					/* Set Beep On Error mode */
+					beepmode = !beepmode;
+					sflag++;
+					break;					
 				case 11:
 				case 57:
 					/* 0/CR - Continue */
@@ -341,6 +318,12 @@ void get_config()
 			}
 			popclear();
 			break;
+		case 6:
+			/* Display DMI Memory Info */
+			pop2up();
+      print_dmi_info();
+			pop2down();
+      break;
 		case 7:
 			/* 6 - ECC Polling Mode */
 			popclear();
@@ -382,7 +365,10 @@ void get_config()
 			flag++;
 			break;
 		case 10:
-			get_menu();
+			popdown();
+			show_spd();
+			popup();
+			sflag++;
 			break;
 		case 11:
 		case 57:
@@ -560,3 +546,58 @@ void adj_mem(void)
 		}
 	}
 }
+
+/*
+void performance()
+{ 
+	extern int l1_cache, l2_cache;
+	ulong speed;
+	int i;
+	
+	popclear();
+
+	cprint(POP_Y+1, POP_X+1, "             Read   Write    Copy");
+	cprint(POP_Y+3, POP_X+1, "L1 Cache:");
+	speed=memspeed((ulong)mapping(0x100), (l1_cache/4)*1024, 500, MS_READ);
+	dprint(POP_Y+3, POP_X+10, speed, 6, 0);
+	speed=memspeed((ulong)mapping(0x100), (l1_cache/4)*1024, 50, MS_WRITE);
+	dprint(POP_Y+3, POP_X+17, speed, 6, 0);
+	speed=memspeed((ulong)mapping(0x100), (l1_cache/4)*1024, 50, MS_COPY);
+	dprint(POP_Y+3, POP_X+24, speed, 6, 0);
+
+	if (l2_cache < l1_cache) {
+		i = l1_cache / 4 + l2_cache / 4;
+	} else {
+		i = l1_cache;
+	}
+	cprint(POP_Y+5, POP_X+1, "L2 Cache:");
+	speed=memspeed((ulong)mapping(0x100), i*1024, 500, MS_READ);
+	dprint(POP_Y+5, POP_X+10, speed, 6, 0);
+	speed=memspeed((ulong)mapping(0x100), i*1024, 50, MS_WRITE);
+	dprint(POP_Y+5, POP_X+17, speed, 6, 0);
+	speed=memspeed((ulong)mapping(0x100), i*1024, 50, MS_COPY);
+	dprint(POP_Y+5, POP_X+24, speed, 6, 0);
+
+	// Determine memory speed.  To find the memory spped we use
+  // A block size that is 5x the sum of the L1 and L2 caches
+        i = (l2_cache + l1_cache) * 5;
+
+  // Make sure that we have enough memory to do the test
+     if ((1 + (i * 2)) > (v->plim_upper << 2)) {
+             i = ((v->plim_upper <<2) - 1) / 2;
+     }
+        
+        
+	cprint(POP_Y+7, POP_X+1, "Memory:");
+	speed=memspeed((ulong)mapping(0x100), i*1024, 500, MS_READ);
+	dprint(POP_Y+7, POP_X+10, speed, 6, 0);
+	speed=memspeed((ulong)mapping(0x100), i*1024, 50, MS_WRITE);
+	dprint(POP_Y+7, POP_X+17, speed, 6, 0);
+	speed=memspeed((ulong)mapping(0x100), i*1024, 50, MS_COPY);
+	dprint(POP_Y+7, POP_X+24, speed, 6, 0);
+
+	wait_keyup();
+	while (get_key() == 0);
+	popclear();
+}
+*/

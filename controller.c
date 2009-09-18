@@ -3,7 +3,7 @@
  * Released under version 2 of the Gnu Public License.
  * By Chris Brady, cbrady@sgi.com
  * ----------------------------------------------------
- * MemTest86+ V1.70 Specific code (GPL V2.0)
+ * MemTest86+ V2.00 Specific code (GPL V2.0)
  * By Samuel DEMEULEMEESTER, sdemeule@memtest.org
  * http://www.x86-secret.com - http://www.memtest.org
  */
@@ -28,7 +28,6 @@ extern struct cpu_ident cpu_id;
 	__asm__ __volatile__("wrmsr" \
 			  : /* no outputs */ \
 			  : "c" (msr), "a" (val1), "d" (val2))
-
 
 /* controller ECC capabilities and mode */
 #define __ECC_UNEXPECTED 1      /* Unknown ECC capability present */
@@ -117,7 +116,6 @@ void print_timings_info(float cas, int rcd, int rp, int ras) {
 
 }
 
-
 void print_fsb_info(float val, const char *text_fsb) {
 
 	cprint(LINE_CPU+5, col2, "Settings: ");
@@ -130,8 +128,13 @@ void print_fsb_info(float val, const char *text_fsb) {
 	col2 += 5;
 	cprint(LINE_CPU+5, col2, "(DDR");
 	col2 += 4;
+	if(val < 500) {
 	dprint(LINE_CPU+5, col2, val*2 ,3 ,0);
-	col2 += 3;
+	col2 += 3; 
+	} else {
+	dprint(LINE_CPU+5, col2, val*2 ,4 ,0);
+	col2 += 4; 		
+	}
 	cprint(LINE_CPU+5, col2, ")");
 	col2 += 1;
 }
@@ -218,6 +221,37 @@ static void setup_amd64(void)
 		
 		
 	}
+}
+
+static void setup_k10(void)
+{
+	static const int ddim[] = { ECC_NONE, ECC_CORRECT, ECC_CHIPKILL, ECC_CHIPKILL };
+	unsigned long nbxcfg;
+	unsigned int mcgsrl;
+	unsigned int mcgsth;
+	unsigned long mcanb;
+	unsigned long dramcl;
+
+	/* All AMD64 support Chipkill */
+	ctrl.cap = ECC_CHIPKILL;
+
+	/* Check First if ECC DRAM Modules are used */
+	pci_conf_read(0, 24, 2, 0x90, 4, &dramcl);
+	
+		if ((dramcl >> 19)&1){
+			/* Fill in the correct memory capabilites */
+			pci_conf_read(0, 24, 3, 0x44, 4, &nbxcfg);
+			ctrl.mode = ddim[(nbxcfg >> 22)&3];
+		} else {
+			ctrl.mode = ECC_NONE;
+		}
+		/* Enable NB ECC Logging by MSR Write */
+		rdmsr(0x017B, mcgsrl, mcgsth);
+		wrmsr(0x017B, 0x10, mcgsth);
+	
+		/* Clear any previous error */
+		pci_conf_read(0, 24, 3, 0x4C, 4, &mcanb);
+		pci_conf_write(0, 24, 3, 0x4C, 4, mcanb & 0x7FFFFFFF );		
 }
 
 static void poll_amd64(void)
@@ -391,6 +425,30 @@ static void setup_cnb20(void)
 	 * do it right now.
 	 */
 }
+
+static void setup_E5400(void)
+{
+	unsigned long mcs;
+
+
+	/* Read the hardware capabilities */
+	pci_conf_read(ctrl.bus, 16, 1, 0x40, 4, &mcs);
+
+	/* Fill in the correct memory capabilities */
+	ctrl.mode = 0;
+	ctrl.cap = ECC_SCRUB;
+
+	/* Checking and correcting enabled */
+	if (((mcs >> 5) & 1) == 1) {
+		ctrl.mode |= ECC_CORRECT;
+	}
+
+	/* scrub enabled */
+	if (((mcs >> 7) & 1) == 1) {
+		ctrl.mode |= __ECC_SCRUB;
+	}
+}
+
 
 static void setup_iE7xxx(void)
 {
@@ -682,6 +740,27 @@ static void setup_i925(void)
 
 }
 
+static void setup_p35(void)
+{
+
+	// Activate MMR I/O
+	ulong dev0, capid0;
+	
+	pci_conf_read( 0, 0, 0, 0x48, 4, &dev0);
+	if (!(dev0 & 0xFFFFC000) & 0x1) {
+		pci_conf_write( 0, 0, 0, 0x48, 1, dev0 | 1);
+	}
+	
+	// ECC Checking (No poll on X38/48 for now)
+	pci_conf_read( 0, 0, 0, 0xE4, 4, &capid0);
+	if ((capid0 >> 8) & 1) {
+		ctrl.cap = ECC_NONE;
+	} else {
+		ctrl.cap = ECC_CORRECT;	
+	}
+	
+	ctrl.mode = ECC_NONE; 
+}
 
 static void poll_i875(void)
 {
@@ -980,17 +1059,23 @@ static void poll_iE7520(void)
 
 static float athloncoef[] = {11, 11.5, 12.0, 12.5, 5.0, 5.5, 6.0, 6.5, 7.0, 7.5, 8.0, 8.5, 9.0, 9.5, 10.0, 10.5};
 static float athloncoef2[] = {12, 19.0, 12.0, 20.0, 13.0, 13.5, 14.0, 21.0, 15.0, 22, 16.0, 16.5, 17.0, 18.0, 23.0, 24.0};
-static int p4model1ratios[] = {16, 17, 18, 19, 20, 21, 22, 23, 8, 9, 10, 11, 12, 13, 14, 15};
+static float p4model1ratios[] = {16, 17, 18, 19, 20, 21, 22, 23, 8, 9, 10, 11, 12, 13, 14, 15};
 
-static int getP4PMmultiplier(void)
+static float getP4PMmultiplier(void)
 {
 	unsigned int msr_lo, msr_hi;
-	int coef;
+	float coef;
 	/* Find multiplier (by MSR) */
 
 	if (cpu_id.type == 6) {
-		rdmsr(0x2A, msr_lo, msr_hi);
-		coef = (msr_lo >> 22) & 0x1F;
+		if((cpu_id.feature_flag >> 7) & 1) {
+			rdmsr(0x198, msr_lo, msr_hi);
+			coef = ((msr_lo >> 8) & 0x1F);
+			if ((msr_lo >> 14) & 0x1) { coef = coef + 0.5f; }
+		} else {
+			rdmsr(0x2A, msr_lo, msr_hi);
+			coef = (msr_lo >> 22) & 0x1F;
+		}
 	}
 	else
 	{
@@ -998,7 +1083,7 @@ static int getP4PMmultiplier(void)
 		{
 			rdmsr(0x2A, msr_lo, msr_hi);
 			coef = (msr_lo >> 8) & 0xF;
-			coef = p4model1ratios[coef];
+			coef = p4model1ratios[(int)coef];
 		}
 		else
 		{
@@ -1095,11 +1180,69 @@ static void poll_fsb_amd64(void) {
 
 }
 
+static void poll_fsb_k10(void) {
+
+	unsigned int mcgsrl;
+	unsigned int mcgsth;
+	unsigned long fid, temp2;
+	unsigned long dramchr;
+	float clockratio;
+	double dramclock;
+	float coef;
+
+	/* First, got the FID by MSR */
+	rdmsr(0xc0010071, mcgsrl, mcgsth);
+	fid = mcgsrl & 0x3F;
+
+	/* Extreme simplification. */
+	coef = (fid + 16.0f) / 2.0f;
+
+	/* Next, we need the clock ratio */
+		pci_conf_read(0, 24, 2, 0x94, 4, &dramchr);
+		temp2 = (dramchr & 0x7);
+
+		switch (temp2) {
+			default:
+			case 0x0:
+				clockratio = coef;
+				break;
+			case 0x1:
+				clockratio = coef * 3.0f/4.0f;
+				break;
+			case 0x2:
+				clockratio = coef * 3.0f/5.0f;
+				break;
+			case 0x3:
+				clockratio = coef * 3.0f/6.0f;
+				break;
+			case 0x4:
+				clockratio = coef * 3.0f/7.0f;
+				break;
+			case 0x5:
+				clockratio = coef * 3.0f/8.0f;
+				break;
+			case 0x6:
+				clockratio = coef * 3.0f/9.0f;
+				break;
+			case 0x7:
+				clockratio = coef * 3.0f/10.0f;
+				break;
+			}	
+
+
+	/* Compute the final DRAM Clock */
+	dramclock = (extclock /1000) / clockratio;
+
+	/* ...and print */
+	print_fsb_info(dramclock, "RAM : ");
+
+}
+
 static void poll_fsb_i925(void) {
 
 	double dramclock, dramratio, fsb;
 	unsigned long mchcfg, mchcfg2, dev0, drc, idetect;
-	int coef = getP4PMmultiplier();
+	float coef = getP4PMmultiplier();
 	long *ptr;
 	
 	pci_conf_read( 0, 0, 0, 0x02, 2, &idetect);
@@ -1160,7 +1303,7 @@ static void poll_fsb_i945(void) {
 
 	double dramclock, dramratio, fsb;
 	unsigned long mchcfg, dev0;
-	int coef = getP4PMmultiplier();
+	float coef = getP4PMmultiplier();
 	long *ptr;
 
 	/* Find dramratio */
@@ -1198,7 +1341,7 @@ static void poll_fsb_i975(void) {
 
 	double dramclock, dramratio, fsb;
 	unsigned long mchcfg, dev0, fsb_mch;
-	int coef = getP4PMmultiplier();
+	float coef = getP4PMmultiplier();
 	long *ptr;
 
 	/* Find dramratio */
@@ -1267,11 +1410,11 @@ static void poll_fsb_i965(void) {
 
 	double dramclock, dramratio, fsb;
 	unsigned long mchcfg, dev0, fsb_mch;
-	int coef = getP4PMmultiplier();
+	float coef = getP4PMmultiplier();
 	long *ptr;
 
 	/* Find dramratio */
-	pci_conf_read( 0, 0, 0, 0x44, 4, &dev0);
+	pci_conf_read( 0, 0, 0, 0x48, 4, &dev0);
 	dev0 &= 0xFFFFC000;
 	ptr=(long*)(dev0+0xC00);
 	mchcfg = *ptr & 0xFFFF;
@@ -1281,7 +1424,9 @@ static void poll_fsb_i965(void) {
 		case 0: fsb_mch = 1066; break;
 		case 1: fsb_mch = 533; break;
 		default: case 2:	fsb_mch = 800; break;
-		case 3:	fsb_mch = 667; break;				
+		case 3:	fsb_mch = 667; break;		
+		case 4: fsb_mch = 1333; break;
+		case 6: fsb_mch = 1600; break;					
 	}
 
 
@@ -1298,20 +1443,42 @@ static void poll_fsb_i965(void) {
 	case 800:
 		switch ((mchcfg >> 4)&7) {
 			case 0:	dramratio = 1.0; break;
-			case 1:	dramratio = 1.33334; break;
-			case 2:	dramratio = 1.66667; break;
+			case 1:	dramratio = 5.0f/4.0f; break;
+			case 2:	dramratio = 5.0f/3.0f; break;
 			case 3:	dramratio = 2.0; break;
+			case 4:	dramratio = 8.0f/3.0f; break;
+			case 5:	dramratio = 10.0f/3.0f; break;
 		}
 		break;
 
 	case 1066:
 		switch ((mchcfg >> 4)&7) {
-			case 1:	dramratio = 1.0; break;
-			case 2:	dramratio = 1.25; break;
-			case 3:	dramratio = 1.5; break;
-			case 4:	dramratio = 2.0; break;
+			case 1:	dramratio = 1.0f; break;
+			case 2:	dramratio = 5.0f/4.0f; break;
+			case 3:	dramratio = 3.0f/2.0f; break;
+			case 4:	dramratio = 2.0f; break;
+			case 5:	dramratio = 5.0f/2.0f; break;
 		}
 		break;
+	
+	case 1333:
+		switch ((mchcfg >> 4)&7) {
+			case 2:	dramratio = 1.0f; break;
+			case 3:	dramratio = 6.0f/5.0f; break;
+			case 4:	dramratio = 8.0f/5.0f; break;
+			case 5:	dramratio = 2.0f; break;
+		}
+		break;
+
+	case 1600:
+		switch ((mchcfg >> 4)&7) {
+			case 3:	dramratio = 1.0f; break;
+			case 4:	dramratio = 4.0f/3.0f; break;
+			case 5:	dramratio = 3.0f/2.0f; break;
+			case 6:	dramratio = 2.0f; break;
+		}
+		break;
+
 }
 
 	// Compute RAM Frequency
@@ -1331,12 +1498,61 @@ static void poll_fsb_i965(void) {
 
 }
 
+static void poll_fsb_5400(void) {
+
+	double dramclock, dramratio, fsb;
+	unsigned long ambase_low, ambase_high, ddrfrq;
+	float coef = getP4PMmultiplier();
+
+	/* Find dramratio */
+	pci_conf_read( 0, 16, 0, 0x48, 4, &ambase_low);
+	ambase_low &= 0xFFFE0000;
+	pci_conf_read( 0, 16, 0, 0x4C, 4, &ambase_high);
+	ambase_high &= 0xFF;
+	pci_conf_read( 0, 16, 1, 0x56, 1, &ddrfrq);
+  ddrfrq &= 7;
+  dramratio = 1;
+
+	switch (ddrfrq) {
+			case 0:	
+			case 1:	
+			case 4:					
+				dramratio = 1.0; 
+				break;
+			case 2:	
+				dramratio = 5.0f/4.0f; 
+				break;
+			case 3:	
+			case 7:	
+				dramratio = 4.0f/5.0f; 
+				break;
+		}
+
+
+	// Compute RAM Frequency
+	fsb = ((extclock / 1000) / coef);
+	dramclock = fsb * dramratio;
+
+	// Print DRAM Freq
+	print_fsb_info(dramclock, "RAM : ");
+
+	/* Print FSB (only if ECC is not enabled) */
+	cprint(LINE_CPU+4, col +1, "- FSB : ");
+	col += 9;
+	dprint(LINE_CPU+4, col, fsb, 3,0);
+	col += 3;
+	cprint(LINE_CPU+4, col +1, "MHz");
+	col += 4;
+
+}
+
+
 static void poll_fsb_nf4ie(void) {
 
 	double dramclock, dramratio, fsb;
 	float mratio, nratio;
 	unsigned long reg74, reg60;
-	int coef = getP4PMmultiplier();
+	float coef = getP4PMmultiplier();
 	
 	/* Find dramratio */
 	pci_conf_read(0, 0, 2, 0x74, 2, &reg74);
@@ -1376,7 +1592,7 @@ static void poll_fsb_i875(void) {
 
 	double dramclock, dramratio, fsb;
 	unsigned long mchcfg, smfs;
-	int coef = getP4PMmultiplier();
+	float coef = getP4PMmultiplier();
 
 	/* Find dramratio */
 	pci_conf_read(0, 0, 0, 0xC6, 2, &mchcfg);
@@ -1418,7 +1634,7 @@ static void poll_fsb_i875(void) {
 static void poll_fsb_p4(void) {
 
 	ulong fsb, idetect;
-	int coef = getP4PMmultiplier();
+	float coef = getP4PMmultiplier();
 
 	fsb = ((extclock /1000) / coef);
 
@@ -1608,6 +1824,57 @@ static void poll_timings_nf4ie(void) {
 
 }
 
+static void poll_timings_i875(void) {
+
+	ulong dev6, dev62;
+	ulong temp;
+	float cas;
+	int rcd, rp, ras;
+	long *ptr, *ptr2;
+
+	/* Read the MMR Base Address & Define the pointer */
+	pci_conf_read( 0, 6, 0, 0x10, 4, &dev6);
+
+	/* Now, the PAT ritual ! (Kant and Luciano will love this) */
+	pci_conf_read( 0, 6, 0, 0x40, 4, &dev62);
+	ptr2=(long*)(dev6+0x68);
+
+	if ((dev62&0x3) == 0 && ((*ptr2 >> 14)&1) == 1) {
+		cprint(LINE_CPU+4, col +1, "- PAT : Enabled");
+	} else {
+		cprint(LINE_CPU+4, col +1, "- PAT : Disabled");
+	}
+
+	/* Now, we could check some additionnals timings infos) */
+
+	ptr=(long*)(dev6+0x60);
+	// CAS Latency (tCAS)
+	temp = ((*ptr >> 5)& 0x3);
+	if (temp == 0x0) { cas = 2.5; } else if (temp == 0x1) { cas = 2; } else { cas = 3; }
+
+	// RAS-To-CAS (tRCD)
+	temp = ((*ptr >> 2)& 0x3);
+	if (temp == 0x0) { rcd = 4; } else if (temp == 0x1) { rcd = 3; } else { rcd = 2; }
+
+	// RAS Precharge (tRP)
+	temp = (*ptr&0x3);
+	if (temp == 0x0) { rp = 4; } else if (temp == 0x1) { rp = 3; } else { rp = 2; }
+
+	// RAS Active to precharge (tRAS)
+	temp = ((*ptr >> 7)& 0x7);
+	ras = 10 - temp;
+
+	// Print timings
+	print_timings_info(cas, rcd, rp, ras);
+
+	// Print 64 or 128 bits mode
+	if (((*ptr2 >> 21)&3) > 0) { 
+		cprint(LINE_CPU+5, col2, "/ Dual Channel (128 bits)");
+	} else {
+		cprint(LINE_CPU+5, col2, "/ Single Channel (64 bits)");
+	}
+}
+
 static void poll_timings_i925(void) {
 
 	// Thanks for CDH optis
@@ -1688,55 +1955,151 @@ static void poll_timings_i925(void) {
 
 }
 
-static void poll_timings_i875(void) {
 
-	ulong dev6, dev62;
-	ulong temp;
-	float cas;
-	int rcd, rp, ras;
-	long *ptr, *ptr2;
+static void poll_timings_p35(void) {
 
-	/* Read the MMR Base Address & Define the pointer */
-	pci_conf_read( 0, 6, 0, 0x10, 4, &dev6);
+	// Thanks for CDH optis
+	ulong dev0, temp, Memory_Check,	c0ckectrl, c1ckectrl;
+	ulong ODT_Control_Register, Precharge_Register, ACT_Register, Read_Register, Misc_Register;
+	long *ptr;
 
-	/* Now, the PAT ritual ! (Kant and Luciano will love this) */
-	pci_conf_read( 0, 6, 0, 0x40, 4, &dev62);
-	ptr2=(long*)(dev6+0x68);
+	//Now, read MMR Base Address
+	pci_conf_read( 0, 0, 0, 0x48, 4, &dev0);
+	dev0 &= 0xFFFFC000;
 
-	if ((dev62&0x3) == 0 && ((*ptr2 >> 14)&1) == 1) {
-		cprint(LINE_CPU+4, col +1, "- PAT : Enabled");
+	ptr = (long*)(dev0+0x265);
+	ODT_Control_Register = *ptr & 0xFFFFFFFF;
+
+	ptr = (long*)(dev0+0x25D);	
+	Precharge_Register = *ptr & 0xFFFFFFFF;
+
+	ptr = (long*)(dev0+0x252);
+	ACT_Register = *ptr & 0xFFFFFFFF;
+
+	ptr = (long*)(dev0+0x258);
+	Read_Register = *ptr & 0xFFFFFFFF;
+
+	ptr = (long*)(dev0+0x244);
+	Misc_Register = *ptr & 0xFFFFFFFF;
+
+	ptr = (long*)(dev0+0x1E8);
+	Memory_Check = *ptr & 0xFFFFFFFF;	
+
+	ptr = (long*)(dev0+0x260);
+	c0ckectrl = *ptr & 0xFFFFFFFF;	
+
+	ptr = (long*)(dev0+0x660);
+	c1ckectrl = *ptr & 0xFFFFFFFF;	
+
+	//Determine DDR or DDR-II
+	
+	if (Memory_Check & 1) {
+		cprint(LINE_CPU+4, col +1, "- Type : DDR2");
 	} else {
-		cprint(LINE_CPU+4, col +1, "- PAT : Disabled");
+		cprint(LINE_CPU+4, col +1, "- Type : DDR3");
 	}
 
-	/* Now, we could check some additionnals timings infos) */
+	// Now, detect timings
+	cprint(LINE_CPU+5, col2 +1, "/ CAS : ");
+	col2 += 9;
 
-	ptr=(long*)(dev6+0x60);
 	// CAS Latency (tCAS)
-	temp = ((*ptr >> 5)& 0x3);
-	if (temp == 0x0) { cas = 2.5; } else if (temp == 0x1) { cas = 2; } else { cas = 3; }
+	temp = ((ODT_Control_Register >> 8)& 0x3F) - 9.0f;
+	dprint(LINE_CPU+5, col2, temp, 1 ,0);
+	cprint(LINE_CPU+5, col2+1, "-");
+	(temp < 10)?(col2 += 2):(col2 += 3);
 
 	// RAS-To-CAS (tRCD)
-	temp = ((*ptr >> 2)& 0x3);
-	if (temp == 0x0) { rcd = 4; } else if (temp == 0x1) { rcd = 3; } else { rcd = 2; }
+	temp = (Read_Register >> 17) & 0xF;
+	dprint(LINE_CPU+5, col2, temp, 1 ,0);
+	cprint(LINE_CPU+5, col2+1, "-");
+	(temp < 10)?(col2 += 2):(col2 += 3);
 
 	// RAS Precharge (tRP)
-	temp = (*ptr&0x3);
-	if (temp == 0x0) { rp = 4; } else if (temp == 0x1) { rp = 3; } else { rp = 2; }
+	temp = (ACT_Register >> 13) & 0xF;
+	dprint(LINE_CPU+5, col2, temp, 1 ,0);
+	cprint(LINE_CPU+5, col2+1, "-");
+	(temp < 10)?(col2 += 2):(col2 += 3);
 
 	// RAS Active to precharge (tRAS)
-	temp = ((*ptr >> 7)& 0x7);
-	ras = 10 - temp;
+	temp = Precharge_Register & 0x3F;
+	dprint(LINE_CPU+5, col2, temp, 1 ,0);
+	(temp < 10)?(col2 += 1):(col2 += 2);
 
-	// Print timings
-	print_timings_info(cas, rcd, rp, ras);
+	cprint(LINE_CPU+5, col2+1, "/"); col2 +=2;
 
-	// Print 64 or 128 bits mode
-	if (((*ptr2 >> 21)&3) > 0) { 
-		cprint(LINE_CPU+5, col2, "/ Dual Channel (128 bits)");
-	} else {
-		cprint(LINE_CPU+5, col2, "/ Single Channel (64 bits)");
+
+	if ((c0ckectrl >> 20 & 0xF) && (c1ckectrl >> 20 & 0xF)) { 
+		cprint(LINE_CPU+5, col2+1, "Dual Channel"); 
+	}	else {
+		cprint(LINE_CPU+5, col2+1, "Single Channel"); 
 	}
+
+}
+
+static void poll_timings_5400(void) {
+
+	// Thanks for CDH optis
+	ulong ambase, mtr1, mtr2, offset, mca, temp;
+	long *ptr;
+
+	//Hard-coded Ambase value (should not be realocated by software when using Memtest86+
+	ambase = 0xFE000000;
+  offset = mtr1 = mtr2 = 0;
+
+  // Will loop until a valid populated channel is found
+  // Bug  : DIMM 0 must be populated or it will fall in an endless loop  
+  while(((mtr2 & 0xF) < 3) || ((mtr2 & 0xF) > 6)) {
+		ptr = (long*)(ambase+0x378+offset);
+		mtr1 = *ptr & 0xFFFFFFFF;
+	
+		ptr = (long*)(ambase+0x37C+offset);	
+		mtr2 = *ptr & 0xFFFFFFFF;
+		offset += 0x8000;
+	}
+
+	pci_conf_read( 0, 16, 1, 0x58, 4, &mca);
+
+	//This chipset only supports FB-DIMM (Removed => too long)
+	//cprint(LINE_CPU+4, col +1, "- Type : FBD");
+
+	// Now, detect timings
+	cprint(LINE_CPU+5, col2 +1, "/ CAS : ");
+	col2 += 9;
+
+	// CAS Latency (tCAS)
+	temp = mtr2 & 0xF;
+	dprint(LINE_CPU+5, col2, temp, 1 ,0);
+	cprint(LINE_CPU+5, col2+1, "-");
+	col2 += 2;
+
+	// RAS-To-CAS (tRCD)
+	temp = 6 - ((mtr1 >> 10) & 3);
+	dprint(LINE_CPU+5, col2, temp, 1 ,0);
+	cprint(LINE_CPU+5, col2+1, "-");
+	col2 += 2;
+
+	// RAS Precharge (tRP)
+	temp = 6 - ((mtr1 >> 8) & 3);
+	dprint(LINE_CPU+5, col2, temp, 1 ,0);
+	cprint(LINE_CPU+5, col2+1, "-");
+	col2 += 2;
+
+	// RAS Active to precharge (tRAS)
+	temp = 16 - (3 * ((mtr1 >> 29) & 3)) + ((mtr1 >> 12) & 3);
+  if(((mtr1 >> 12) & 3) == 3 && ((mtr1 >> 29) & 3) == 2) { temp = 9; }
+
+	dprint(LINE_CPU+5, col2, temp, 1 ,0);
+	(temp < 10)?(col2 += 1):(col2 += 2);
+
+	cprint(LINE_CPU+5, col2+1, "/"); col2 +=2;
+
+	if ((mca >> 14) & 1) { 
+		cprint(LINE_CPU+5, col2+1, "Single Channel"); 
+	}	else {
+		cprint(LINE_CPU+5, col2+1, "Dual Channel"); 
+	}
+
 }
 
 static void poll_timings_E7520(void) {
@@ -1953,6 +2316,65 @@ static void poll_timings_amd64(void) {
 	}
 }
 
+static void poll_timings_k10(void) {
+
+	ulong dramtlr, dramclr, dramchr;
+	int temp;
+	int trcd, trp, tras ;
+
+	cprint(LINE_CPU+5, col2 +1, "/ CAS : ");
+	col2 += 9;
+	
+	pci_conf_read(0, 24, 2, 0x88, 4, &dramtlr);
+	pci_conf_read(0, 24, 2, 0x110, 4, &dramclr);
+	pci_conf_read(0, 24, 2, 0x94, 4, &dramchr);
+
+	// CAS Latency (tCAS)
+	temp = (dramtlr & 0x7) + 1;
+	dprint(LINE_CPU+5, col2, temp , 1 ,0);
+	cprint(LINE_CPU+5, col2 +1, "-"); col2 +=2;
+	
+	// RAS-To-CAS (tRCD)
+	trcd = ((dramtlr >> 4) & 0x3) + 3;
+	dprint(LINE_CPU+5, col2, trcd , 1 ,0);
+	cprint(LINE_CPU+5, col2 +1, "-"); col2 +=2;
+	
+	// RAS Precharge (tRP)
+	trp = ((dramtlr >> 8) & 0x3) + 3;
+	dprint(LINE_CPU+5, col2, trp , 1 ,0);
+	cprint(LINE_CPU+5, col2 +1, "-"); col2 +=2;
+
+	// RAS Active to precharge (tRAS)
+	tras = ((dramtlr >> 12) & 0xF) + 3;
+	dprint(LINE_CPU+5, col2, tras, 1 ,0);
+	(tras < 10)?(col2 += 1):(col2 += 2);
+	cprint(LINE_CPU+5, col2, "-");
+	col2 += 1;
+
+	// Row Cycle Time (tRC)
+	trp = ((dramtlr >> 16) & 0x1F) + 11;
+	dprint(LINE_CPU+5, col2, trp , 1 ,0);
+	col2 +=2;	
+	
+	cprint(LINE_CPU+5, col2+1, "/"); col2 +=2;
+	
+	//Print DDR2 or DDR3
+	if ((dramchr >> 8)&1) {
+		cprint(LINE_CPU+5, col2+1, "DDR-3");
+	} else {
+		cprint(LINE_CPU+5, col2+1, "DDR-2");
+	}
+	col2 += 6;
+	
+	// Print 64 or 128 bits mode
+	if ((dramclr >> 4)&1) {
+		cprint(LINE_CPU+5, col2+1, "(Dual)");
+	} else {
+		cprint(LINE_CPU+5, col2+1, "(Single)");
+	}
+	
+}
+
 static void poll_timings_nf2(void) {
 
 	ulong dramtlr, dramtlr2, dramtlr3, temp;
@@ -2020,8 +2442,7 @@ static struct pci_memory_controller controllers[] = {
 	{ 0x1022, 0x700c, "AMD 762",   0, poll_fsb_nothing, poll_timings_nothing, setup_amd76x, poll_amd76x },
 	{ 0x1022, 0x700e, "AMD 761",   0, poll_fsb_nothing, poll_timings_nothing, setup_amd76x, poll_amd76x },
 	{ 0x1022, 0x0000, "AMD K8",		 0, poll_fsb_amd64, poll_timings_amd64, setup_amd64, poll_amd64 },
-	{ 0x1022, 0x1100, "AMD 8000",  0, poll_fsb_amd64, poll_timings_amd64, setup_amd64, poll_amd64 },
-	{ 0x1022, 0x7454, "AMD 8000",  0, poll_fsb_amd64, poll_timings_amd64, setup_amd64, poll_amd64 },
+	{ 0x1022, 0x0000, "AMD K10",	 0, poll_fsb_k10, poll_timings_k10, setup_k10, poll_nothing },
 
 	/* SiS */
 	{ 0x1039, 0x0600, "SiS 600",   0, poll_fsb_nothing, poll_timings_nothing, setup_nothing, poll_nothing },
@@ -2036,7 +2457,6 @@ static struct pci_memory_controller controllers[] = {
 	{ 0x1039, 0x0735, "SiS 735",   0, poll_fsb_amd32, poll_timings_nothing, setup_nothing, poll_nothing },
 	{ 0x1039, 0x0740, "SiS 740",   0, poll_fsb_amd32, poll_timings_nothing, setup_nothing, poll_nothing },
 	{ 0x1039, 0x0745, "SiS 745",   0, poll_fsb_amd32, poll_timings_nothing, setup_nothing, poll_nothing },
-	{ 0x1039, 0x0755, "SiS 755",   0, poll_fsb_amd64, poll_timings_amd64, setup_amd64, poll_amd64 },
 	{ 0x1039, 0x0748, "SiS 748",   0, poll_fsb_amd32, poll_timings_nothing, setup_nothing, poll_nothing },
 	{ 0x1039, 0x0655, "SiS 655",   0, poll_fsb_p4, poll_timings_nothing, setup_nothing, poll_nothing },
 	{ 0x1039, 0x0648, "SiS 648",   0, poll_fsb_p4, poll_timings_nothing, setup_nothing, poll_nothing },
@@ -2046,9 +2466,6 @@ static struct pci_memory_controller controllers[] = {
 	{ 0x10b9, 0x1531, "Aladdin 4", 0, poll_fsb_nothing, poll_timings_nothing, setup_nothing, poll_nothing },
 	{ 0x10b9, 0x1541, "Aladdin 5", 0, poll_fsb_nothing, poll_timings_nothing, setup_nothing, poll_nothing },
 	{ 0x10b9, 0x1644, "ALi Aladdin M1644", 0, poll_fsb_nothing, poll_timings_nothing, setup_nothing, poll_nothing },
-	{ 0x10b9, 0x1687, "ALi M1687", 0, poll_fsb_amd64, poll_timings_amd64, setup_amd64, poll_amd64 },
-	{ 0x10b9, 0x1689, "ALi M1689", 0, poll_fsb_amd64, poll_timings_amd64, setup_amd64, poll_amd64 },
-	{ 0x10b9, 0x1695, "ALi M1695", 0, poll_fsb_amd64, poll_timings_amd64, setup_amd64, poll_amd64 },
 
 	/* ATi */
 	{ 0x1002, 0x5830, "ATi Radeon 9100 IGP", 0, poll_fsb_p4, poll_timings_nothing, setup_nothing, poll_nothing },
@@ -2057,16 +2474,10 @@ static struct pci_memory_controller controllers[] = {
 	{ 0x1002, 0x5833, "ATi Radeon 9100 IGP", 0, poll_fsb_p4, poll_timings_nothing, setup_nothing, poll_nothing },
 	{ 0x1002, 0x5954, "ATi Radeon xPress 200", 0, poll_fsb_p4, poll_timings_nothing, setup_nothing, poll_nothing },
 	{ 0x1002, 0x5A41, "ATi Radeon xPress 200", 0, poll_fsb_p4, poll_timings_nothing, setup_nothing, poll_nothing },
-	{ 0x1002, 0x5950, "ATi Radeon xPress 200", 0, poll_fsb_amd64, poll_timings_amd64, setup_amd64, poll_amd64 },
-	{ 0x1002, 0x5952, "ATi Radeon xPress 3200", 0, poll_fsb_amd64, poll_timings_amd64, setup_amd64, poll_amd64 },
 
 	/* nVidia */
 	{ 0x10de, 0x01A4, "nVidia nForce", 0, poll_fsb_nothing, poll_timings_nothing, setup_nothing, poll_nothing },
 	{ 0x10de, 0x01E0, "nVidia nForce2 SPP", 0, poll_fsb_nf2, poll_timings_nf2, setup_nothing, poll_nothing },
-	{ 0x10de, 0x00D1, "nVidia nForce3", 0, poll_fsb_amd64, poll_timings_amd64, setup_amd64, poll_amd64 },
-	{ 0x10de, 0x00E1, "nForce3 250", 0, poll_fsb_amd64, poll_timings_amd64, setup_amd64, poll_amd64 },
-	{ 0x10de, 0x005E, "nVidia nForce4", 0, poll_fsb_amd64, poll_timings_amd64, setup_amd64, poll_amd64 },
-	{ 0x10de, 0x005F, "nVidia nForce4", 0, poll_fsb_amd64, poll_timings_amd64, setup_amd64, poll_amd64 },
 	{ 0x10de, 0x0071, "nForce4 SLI Intel Edition", 0, poll_fsb_nf4ie, poll_timings_nf4ie, setup_nothing, poll_nothing },
 
 	/* VIA */
@@ -2089,9 +2500,6 @@ static struct pci_memory_controller controllers[] = {
 	{ 0x1106, 0x3123, "VIA CLE266", 0, poll_fsb_nothing, poll_timings_nothing, setup_nothing, poll_nothing },
 	{ 0x1106, 0x0198, "VIA PT800", 0, poll_fsb_nothing, poll_timings_nothing, setup_nothing, poll_nothing },
 	{ 0x1106, 0x3258, "VIA PT880", 0, poll_fsb_nothing, poll_timings_nothing, setup_nothing, poll_nothing },
-	{ 0x1106, 0x3188, "VIA K8T800", 0, poll_fsb_amd64, poll_timings_amd64, setup_amd64, poll_amd64 },
-	{ 0x1106, 0x0282, "VIA K8T800Pro", 0, poll_fsb_amd64, poll_timings_amd64, setup_amd64, poll_amd64 },
-	{ 0x1106, 0x3238, "VIA K8T890", 0, poll_fsb_amd64, poll_timings_amd64, setup_amd64, poll_amd64 },
 
 	/* Serverworks */
 	{ 0x1166, 0x0008, "CNB20HE",   0, poll_fsb_nothing, poll_timings_nothing, setup_cnb20, poll_nothing },
@@ -2136,9 +2544,18 @@ static struct pci_memory_controller controllers[] = {
 	{ 0x8086, 0x2770, "Intel i945P/G", 	 0, poll_fsb_i945, poll_timings_i925, setup_i925, poll_nothing },
 	{ 0x8086, 0x2774, "Intel i955X", 		 0, poll_fsb_i945, poll_timings_i925, setup_i925, poll_nothing},
 	{ 0x8086, 0x277C, "Intel i975X", 		 0, poll_fsb_i975, poll_timings_i925, setup_i925, poll_nothing},
-	{ 0x8086, 0x27A0, "Intel P965/G965", 	 0, poll_fsb_i965, poll_timings_i925, setup_i925, poll_nothing},
-	{ 0x8086, 0x2790, "Intel Q963/Q965", 	 0, poll_fsb_i965, poll_timings_i925, setup_i925, poll_nothing}	
-};
+	{ 0x8086, 0x27A0, "Intel P965/G965", 0, poll_fsb_i965, poll_timings_i925, setup_i925, poll_nothing},
+	{ 0x8086, 0x2790, "Intel Q963/Q965", 0, poll_fsb_i965, poll_timings_i925, setup_i925, poll_nothing},	
+	{ 0x8086, 0x29B0, "Intel Q35", 	 		 0, poll_fsb_i965, poll_timings_p35, setup_p35, poll_nothing},	
+	{ 0x8086, 0x29C0, "Intel P35/G33", 	 0, poll_fsb_i965, poll_timings_p35, setup_p35, poll_nothing},	
+	{ 0x8086, 0x29D0, "Intel Q33",	  	 0, poll_fsb_i965, poll_timings_p35, setup_p35, poll_nothing},	
+	{ 0x8086, 0x29E0, "Intel X38/X48", 	 0, poll_fsb_i965, poll_timings_p35, setup_p35, poll_nothing},			
+	{ 0x8086, 0x4001, "Intel 5400A", 		 0, poll_fsb_5400, poll_timings_5400, setup_E5400, poll_nothing},		
+	{ 0x8086, 0x4003, "Intel 5400B", 		 0, poll_fsb_5400, poll_timings_5400, setup_E5400, poll_nothing},		
+	{ 0x8086, 0x25D8, "Intel 5000P", 		 0, poll_fsb_5400, poll_timings_5400, setup_E5400, poll_nothing},		
+	{ 0x8086, 0x25D4, "Intel 5000V", 		 0, poll_fsb_5400, poll_timings_5400, setup_E5400, poll_nothing},	
+	{ 0x8086, 0x25C0, "Intel 5000Z", 		 0, poll_fsb_5400, poll_timings_5400, setup_E5400, poll_nothing}		
+};	
 
 static void print_memory_controller(void)
 {
@@ -2237,8 +2654,11 @@ void find_controller(void)
 			}
 		}
 		
-	// AMD K8 use integrated mem controller. If SB not detected, force detection
-	if (ctrl.index == 0 && cpu_id.type == 15 && cpu_id.vend_id[0] == 'A') { ctrl.index = 4; }
+	// AMD K8 use integrated mem controller, force detection
+	if (cpu_id.type == 15 && cpu_id.vend_id[0] == 'A') { ctrl.index = 4; }
+		
+	// Same thing for K10. Detect by cpu_id.model = 2, will change it to ext.cpuid > 10 later
+	if (cpu_id.type == 15 && cpu_id.vend_id[0] == 'A' && cpu_id.model == 2) { ctrl.index = 5; }
 	
 	controllers[ctrl.index].setup_ecc();
 	/* Don't enable ECC polling by default unless it has

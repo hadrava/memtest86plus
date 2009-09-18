@@ -4,7 +4,7 @@
  * Released under version 2 of the Gnu Public License.
  * By Chris Brady, cbrady@sgi.com
  * ----------------------------------------------------
- * MemTest86+ V1.70 Specific code (GPL V2.0)
+ * MemTest86+ V2.00 Specific code (GPL V2.0)
  * By Samuel DEMEULEMEESTER, sdemeule@memtest.org
  * http://www.x86-secret.com - http://www.memtest.org
  */
@@ -14,18 +14,16 @@
 #include <sys/io.h>
 #include "dmi.h"
 
-
-extern int segs, bail, beepmode;
+extern int segs, bail;
 extern volatile ulong *p;
 extern ulong p1, p2;
 extern int test_ticks, nticks;
 extern struct tseq tseq[];
+extern void update_err_counts(void);
+extern void print_err_counts(void);
 void poll_errors();
 
 int ecount = 0;
-
-static void update_err_counts(void);
-static void print_err_counts(void);
 
 static inline ulong roundup(ulong value, ulong mask)
 {
@@ -1268,7 +1266,7 @@ void block_move(int iter)
 				"pushl 4(%%edi)\n\t"
 				"pushl %%ecx\n\t"
 				"pushl %%edi\n\t"
-				"call mv_error\n\t"
+				"call error\n\t"
 				"popl %%edi\n\t"
 				"addl $8,%%esp\n\t"
 				"popl %%edx\n\t"
@@ -1311,7 +1309,7 @@ void bit_fade()
 			end = v->map[j].end;
 			pe = start;
 			p = start;
-			for (p=end; p<end; p++) {
+			for (p=start; p<end; p++) {
 				*p = p1;
 			}
 			do_tick();
@@ -1326,7 +1324,7 @@ void bit_fade()
 			end = v->map[j].end;
 			pe = start;
 			p = start;
-			for (p=end; p<end; p++) {
+			for (p=start; p<end; p++) {
 				if ((bad=*p) != p1) {
 					error((ulong*)p, p1, bad);
 				}
@@ -1342,350 +1340,6 @@ void bit_fade()
 	}
 }
 
-
-/*
- * Display data error message. Don't display duplicate errors.
- */
-void error(ulong *adr, ulong good, ulong bad)
-{
-	ulong xor;
-	int patnchg,baddevchg;
-
-	xor = good ^ bad;
-#ifdef USB_WAR
-	/* Skip any errrors that appear to be due to the BIOS using location
-	 * 0x4e0 for USB keyboard support.  This often happens with Intel
-	 * 810, 815 and 820 chipsets.  It is possible that we will skip
-	 * a real error but the odds are very low.
-	 */
-	if ((ulong)adr == 0x4e0 || (ulong)adr == 0x410) {
-		return;
-	}
-#endif
-
-	/* Process the address in the pattern administration */
-	patnchg=insertaddress ((ulong) adr);
-	baddevchg=add_dmi_err((ulong) adr );
-
-	update_err_counts();
-
-	if (v->printmode == PRINTMODE_ADDRESSES) {
-
-		/* Don't display duplicate errors */
-		if ((ulong)adr == (ulong)v->eadr && xor == v->exor) {
-			print_err_counts();
-			dprint(v->msg_line, 66, ++ecount, 5, 0);
-			return;
-		}
-		print_err(adr, good, bad, xor);
-
-	} else if (v->printmode == PRINTMODE_PATTERNS) {
-		print_err_counts();
-
-		if (patnchg) {
-			printpatn();
-		}
-	} else if (v->printmode == PRINTMODE_DMI) {
-	    print_err_counts();
-	    if (baddevchg==1)
-		print_dmi_err();
-	}
-}
-
-/*
- * Display data error message from the block move test.  The actual failing
- * address is unknown so don't use this failure information to create
- * BadRAM patterns.
- */
-void mv_error(ulong *adr, ulong good, ulong bad)
-{
-	ulong xor;
-
-	update_err_counts();
-	if (v->printmode == PRINTMODE_NONE) {
-		return;
-	}
-	xor = good ^ bad;
-	print_err(adr, good, bad, xor);
-}
-
-/*
- * Display address error message.
- * Since this is strictly an address test, trying to create BadRAM
- * patterns does not make sense.  Just report the error.
- */
-void ad_err1(ulong *adr1, ulong *adr2, ulong good, ulong bad)
-{
-	ulong xor;
-	update_err_counts();
-	if (v->printmode == PRINTMODE_NONE) {
-		return;
-	}
-	xor = ((ulong)adr1) ^ ((ulong)adr2);
-	print_err(adr1, good, bad, xor);
-}
-
-/*
- * Display address error message.
- * Since this type of address error can also report data errors go
- * ahead and generate BadRAM patterns.
- */
-void ad_err2(ulong *adr, ulong bad)
-{
-	int patnchg,baddevchg;
-
-	/* Process the address in the pattern administration */
-	patnchg=insertaddress ((ulong) adr);
-	baddevchg=add_dmi_err((ulong) adr );
-
-	update_err_counts();
-	if (v->printmode == PRINTMODE_ADDRESSES) {
-		print_err(adr, (ulong)adr, bad, ((ulong)adr) ^ bad);
-	} else if (v->printmode == PRINTMODE_PATTERNS) {
-		print_err_counts();
-		if (patnchg) {
-			printpatn();
-		}
-	} else if (v->printmode == PRINTMODE_DMI) {
-	    print_err_counts();
-	    if (baddevchg==1)
-		print_dmi_err();
-	}
-}
-void print_hdr(void)
-{
-	if ((v->ecount)>1) {
-		return;
-	}
-	cprint(LINE_HEADER, 0,  "Tst  Pass   Failing Address          Good       Bad     Err-Bits  Count Chan");
-	cprint(LINE_HEADER+1, 0,"---  ----  -----------------------  --------  --------  --------  ----- ----");
-}
-
-static void update_err_counts(void)
-{
-	++(v->ecount);
-
-	if (beepmode){
-		beep(600);
-		beep(1000);
-	}
-
-	tseq[v->test].errors++;
-}
-
-static void print_err_counts(void)
-{
-	int i;
-	char *pp;
-
-	if ((v->ecount > 1048756) && (v->ecount % 32768 != 0))
-	    return;
-	   
-	if ((v->ecount > 2048) && (v->ecount % 1024 != 0))
-	    return;
-	  
-	dprint(LINE_INFO, COL_ERR, v->ecount, 6, 0);
-	dprint(LINE_INFO, COL_ECC_ERR, v->ecc_ecount, 6, 0);
-
-	/* Paint the error messages on the screen red to provide a vivid */
-	/* indicator that an error has occured */
-	if (v->msg_line < 24) {
-		for(i=0, pp=(char *)((SCREEN_ADR+v->msg_line*160+1));
-				 i<76; i++, pp+=2) {
-			*pp = 0x47;
-		}
-	}
-
-
-}
-
-static void common_err(ulong page, ulong offset)
-{
-	ulong mb;
-
-	/* Check for keyboard input */
-	print_hdr();
-	check_input();
-	scroll();
-	print_err_counts();
-
-	mb = page >> 8;
-	dprint(v->msg_line, 0, v->test, 3, 0);
-	dprint(v->msg_line, 4, v->pass, 5, 0);
-	hprint(v->msg_line, 11, page);
-	hprint2(v->msg_line, 19, offset, 3);
-	cprint(v->msg_line, 22, " -      . MB");
-	dprint(v->msg_line, 25, mb, 5, 0);
-	dprint(v->msg_line, 31, ((page & 0xF)*10)/16, 1, 0);
-}
-/*
- * Print an individual error
- */
-void print_err( ulong *adr, ulong good, ulong bad, ulong xor)
-{
-	ulong page, offset;
-
-	page = page_of(adr);
-	offset = ((unsigned long)adr) & 0xFFF;
-	common_err(page, offset);
-
-
-	ecount = 1;
-	hprint(v->msg_line, 36, good);
-	hprint(v->msg_line, 46, bad);
-	hprint(v->msg_line, 56, xor);
-	dprint(v->msg_line, 66, ecount, 5, 0);
-	v->eadr = adr;
-	v->exor = xor;
-}
-
-/*
- * Print an ecc error
- */
-void print_ecc_err(unsigned long page, unsigned long offset,
-	int corrected, unsigned short syndrome, int channel)
-{
-	if (!corrected) {update_err_counts();}
-	++(v->ecc_ecount);
-	if (v->printmode == PRINTMODE_NONE) {
-		return;
-	}
-	common_err(page, offset);
-
-	cprint(v->msg_line, 36,
-		corrected?"corrected           ": "uncorrected         ");
-	hprint2(v->msg_line, 60, syndrome, 4);
-	cprint(v->msg_line, 68, "ECC");
-	dprint(v->msg_line, 74, channel, 2, 0);
-}
-
-#ifdef PARITY_MEM
-/*
- * Print a parity error message
- */
-void parity_err( unsigned long edi, unsigned long esi)
-{
-	unsigned long addr;
-
-	if (v->test == 5) {
-		addr = esi;
-	} else {
-		addr = edi;
-	}
-	update_err_counts();
-	if (v->printmode == PRINTMODE_NONE) {
-		return;
-	}
-	common_err(page_of((void *)addr), addr & 0xFFF);
-	cprint(v->msg_line, 36, "Parity error detected                ");
-}
-#endif
-
-
-/*
- * Print the pattern array as a LILO boot option addressing BadRAM support.
- */
-void printpatn (void)
-{
-	int idx=0;
-	int x;
-
-	/* Check for keyboard input */
-	check_input();
-
-	if (v->numpatn == 0)
-		return;
-
-	scroll();
-
-	cprint (v->msg_line, 0, "badram=");
-	x=7;
-
-	for (idx = 0; idx < v->numpatn; idx++) {
-
-		if (x > 80-22) {
-			scroll();
-			x=7;
-		}
-		cprint (v->msg_line, x, "0x");
-		hprint (v->msg_line, x+2,  v->patn[idx].adr );
-		cprint (v->msg_line, x+10, ",0x");
-		hprint (v->msg_line, x+13, v->patn[idx].mask);
-		if (idx+1 < v->numpatn)
-			cprint (v->msg_line, x+21, ",");
-		x+=22;
-	}
-}
-
-/*
- * Show progress by displaying elapsed time and update bar graphs
- */
-void do_tick(void)
-{
-	int i, pct;
-	ulong h, l, t;
-
-	/* FIXME only print serial error messages from the tick handler */
-	if (v->ecount) {
-		print_err_counts();
-	}
-
-	nticks++;
-	v->total_ticks++;
-
-	pct = 100*nticks/test_ticks;
-	dprint(1, COL_MID+4, pct, 3, 0);
-	i = (BAR_SIZE * pct) / 100;
-	while (i > v->tptr) {
-		if (v->tptr >= BAR_SIZE) {
-			break;
-		}
-		cprint(1, COL_MID+9+v->tptr, "#");
-		v->tptr++;
-	}
-
-	pct = 100*v->total_ticks/v->pass_ticks;
-	dprint(0, COL_MID+4, pct, 3, 0);
-	i = (BAR_SIZE * pct) / 100;
-	while (i > v->pptr) {
-		if (v->pptr >= BAR_SIZE) {
-			break;
-		}
-		cprint(0, COL_MID+9+v->pptr, "#");
-		v->pptr++;
-	}
-
-	/* We can't do the elapsed time unless the rdtsc instruction
-	 * is supported
-	 */
-	if (v->rdtsc) {
-		asm __volatile__(
-			"rdtsc":"=a" (l),"=d" (h));
-		asm __volatile__ (
-			"subl %2,%0\n\t"
-			"sbbl %3,%1"
-			:"=a" (l), "=d" (h)
-			:"g" (v->startl), "g" (v->starth),
-			"0" (l), "1" (h));
-		t = h * ((unsigned)0xffffffff / v->clks_msec) / 1000;
-		t += (l / v->clks_msec) / 1000;
-		i = t % 60;
-		dprint(LINE_TIME, COL_TIME+9, i%10, 1, 0);
-		dprint(LINE_TIME, COL_TIME+8, i/10, 1, 0);
-		t /= 60;
-		i = t % 60;
-		dprint(LINE_TIME, COL_TIME+6, i % 10, 1, 0);
-		dprint(LINE_TIME, COL_TIME+5, i / 10, 1, 0);
-		t /= 60;
-		dprint(LINE_TIME, COL_TIME, t, 4, 0);
-	}
-
-	/* Check for keyboard input */
-	check_input();
-
-	/* Poll for ECC errors */
-	poll_errors();
-}
 
 /* Sleep function */
 

@@ -3,34 +3,34 @@
  * Released under version 2 of the Gnu Public License.
  * By Chris Brady
  * ----------------------------------------------------
- * MemTest86+ V1.65 Specific code (GPL V2.0)
+ * MemTest86+ V2.00 Specific code (GPL V2.0)
  * By Samuel DEMEULEMEESTER, sdemeule@memtest.org
- * http://www.x86-secret.com - http://www.memtest.org
+ * http://www.canardplus.com - http://www.memtest.org
  */
 
 #include "test.h"
 #include "defs.h"
 #undef TEST_TIMES
-#define DEFTESTS 11
+#define DEFTESTS 9
 
 extern void bzero();
 
 const struct tseq tseq[] = {
-	{1,  5,  3,   0, 0, "[Address test, walking ones]          "},
+	{0,  5,  3,   0, 0, "[Address test, walking ones, uncached]"},
 	{1,  6,  3,   2, 0, "[Address test, own address]           "},
 	{1,  0,  3,  14, 0, "[Moving inversions, ones & zeros]     "},
 	{1,  1,  2,  80, 0, "[Moving inversions, 8 bit pattern]    "},
 	{1, 10, 60, 300, 0, "[Moving inversions, random pattern]   "},
 	{1,  7, 64,  66, 0, "[Block move, 64 moves]                "},
 	{1,  2,  2, 320, 0, "[Moving inversions, 32 bit pattern]   "},
-	{1,  9, 40, 120, 0, "[Random number sequence]              "},
-	{1,  3,  4, 240, 0, "[Modulo 20, ones & zeros]             "},
-	{1,  8,  1,   2, 0, "[Bit fade test, 90 min, 2 patterns]   "},
-	{0,  4,  3,   2, 0, "[[Moving inversions, 0 & 1, uncached] "},
+	{1,  9, 40,	120, 0, "[Random number sequence]              "},
+	{1,  3,  4, 1920, 0,"[Modulo 20, random pattern]           "},
+	{1,  8,  1,		2, 0, "[Bit fade test, 90 min, 2 patterns]   "},
 	{0,  0,  0,   0, 0, NULL}
 };
 
 char firsttime = 0;
+char cmdline_parsed = 0;
 
 struct vars variables = {};
 struct vars * const v = &variables;
@@ -40,13 +40,15 @@ ulong p1 = 0, p2 = 0, p0 = 0;
 int segs = 0, bail = 0;
 int test_ticks;
 int nticks;
+ulong high_test_adr = 0x200000;
 
 static int window = 0;
 static struct pmap windows[] =
 {
-	{ 0/* Written at startup */, 0x100000 },
-	{ 0, RES_START >> 12 },
+	{ 0, 0x080000 },
+	{ 0, 0 },
 
+	{ 0x080000, 0x100000 },
 	{ 0x100000, 0x180000 },
 	{ 0x180000, 0x200000 },
 
@@ -93,9 +95,7 @@ static struct pmap windows[] =
 	{ 0xF80000, 0x1000000 },
 };
 
-#if (LOW_TEST_ADR >= HIGH_TEST_ADR)
-#error LOW_TEST_ADR and HIGH_TEST_ADR may not overlap
-#endif
+
 #if (LOW_TEST_ADR > (640*1024))
 #error LOW_TEST_ADR must be below 640K
 #endif
@@ -105,7 +105,7 @@ static void compute_segments(int win);
 
 static void __run_at(unsigned long addr)
 {
-	/* Copy memtest86 code */
+	/* Copy memtest86+ code */
 	memmove((void *)addr, &_start, _end - _start);
 	/* Jump to the start address */
 	p = (ulong *)(addr + startup_32 - _start);
@@ -125,8 +125,8 @@ static void run_at(unsigned long addr)
 	if (	((start < addr) && ((start + len) >= addr)) ||
 		((addr < start) &&  ((addr + len) >= start))) {
 		/* Handle overlap by doing an extra relocation */
-		if (addr + len < HIGH_TEST_ADR) {
-			__run_at(HIGH_TEST_ADR);
+		if (addr + len < high_test_adr) {
+			__run_at(high_test_adr);
 		}
 		else if (start + len < addr) {
 			__run_at(LOW_TEST_ADR);
@@ -135,11 +135,53 @@ static void run_at(unsigned long addr)
 	__run_at(run_at_addr);
 }
 
+/* command line passing using the 'old' boot protocol */
+#define MK_PTR(seg,off) ((void*)(((unsigned long)(seg) << 4) + (off)))
+#define OLD_CL_MAGIC_ADDR ((unsigned short*) MK_PTR(INITSEG,0x20))
+#define OLD_CL_MAGIC 0xA33F 
+#define OLD_CL_OFFSET_ADDR ((unsigned short*) MK_PTR(INITSEG,0x22))
+
+static void parse_command_line(void)
+{
+	char *cmdline;
+
+	if (cmdline_parsed)
+		return;
+
+	if (*OLD_CL_MAGIC_ADDR != OLD_CL_MAGIC)
+		return;
+
+	unsigned short offset = *OLD_CL_OFFSET_ADDR;
+	cmdline = MK_PTR(INITSEG, offset);
+
+	/* skip leading spaces */
+	while (*cmdline == ' ')
+		cmdline++;
+
+	while (*cmdline) {
+		if (!strncmp(cmdline, "console=", 8)) {
+			cmdline += 8;
+			serial_console_setup(cmdline);
+		}
+
+		/* go to the next parameter */
+		while (*cmdline && *cmdline != ' ')
+			cmdline++;
+		while (*cmdline == ' ')
+			cmdline++;
+	}
+
+	cmdline_parsed = 1;
+}
+
+
 void do_test(void)
 {
-	int i = 0;
+	int i = 0, j = 0;
 	unsigned long chunks;
 	unsigned long lo, hi;
+
+	parse_command_line();
 
 	/* If we have a partial relocation finish it */
 	if (run_at_addr == (unsigned long)&_start) {
@@ -153,9 +195,15 @@ void do_test(void)
 		if ((ulong)&_start != LOW_TEST_ADR) {
 			restart();
 		}
-		windows[0].start =
-			( LOW_TEST_ADR + (_end - _start) + 4095) >> 12;
 		init();
+		windows[0].start = 
+			( LOW_TEST_ADR + (_end - _start) + 4095) >> 12;
+
+		/* Set relocation address at 16Mb if there is enough memory */
+		if (v->pmap[v->msegs-1].end > 0x1100) {
+			high_test_adr = 0x01000000;
+		}
+		windows[1].end = (high_test_adr >> 12);
 		firsttime = 1;
 	}
 	bail = 0;
@@ -170,6 +218,14 @@ void do_test(void)
 		goto skip_window;
 	}
 
+	if ((ulong)&_start > LOW_TEST_ADR) {
+		/* Relocated so we need to test all selected lower memory */
+		v->map[0].start = mapping(v->plim_lower);
+		cprint(LINE_RANGE, COL_MID+28, " Relocated");
+	} else {
+		cprint(LINE_RANGE, COL_MID+28, "          ");
+	}
+
 	/* Update display of memory segments being tested */
 	lo = page_of(v->map[0].start);
 	hi = page_of(v->map[segs -1].end);
@@ -177,8 +233,7 @@ void do_test(void)
 	cprint(LINE_RANGE, COL_MID+14, " - ");
 	aprint(LINE_RANGE, COL_MID+17, hi);
 	aprint(LINE_RANGE, COL_MID+23, v->selected_pages);
-	cprint(LINE_RANGE, COL_MID+28,
-		((ulong)&_start == LOW_TEST_ADR)?"          ":" Relocated");
+
 
 #ifdef TEST_TIMES
 	{
@@ -232,7 +287,6 @@ void do_test(void)
 
 	/* Now do the testing according to the selected pattern */
 	case 0:	/* Moving inversions, all ones and zeros */
-	case 1: /* Moving inversions, 8 bit wide walking ones and zeros. */
 	case 4:
 	
 		if (tseq[v->test].pat == 1)
@@ -252,6 +306,22 @@ void do_test(void)
 		}
 		break;
 
+	case 1: /* Moving inversions, 8 bit wide walking ones and zeros. */
+		p0 = 0x80;
+		for (i=0; i<8; i++, p0=p0>>1) {
+			p1 = p0 | (p0<<8) | (p0<<16) | (p0<<24);
+			p2 = ~p1;
+			movinv1(tseq[v->test].iter,p1,p2);
+			BAILOUT;
+	
+			/* Switch patterns */
+			p2 = p1;
+			p1 = ~p2;
+			movinv1(tseq[v->test].iter,p1,p2);
+			BAILOUT
+		}
+		break;		
+	
 
 	case 2: /* Moving inversions, 32 bit shifting pattern, very long */
 		for (i=0, p1=1; p1; p1=p1<<1, i++) {
@@ -262,18 +332,20 @@ void do_test(void)
 		}
 		break;
 
-	case 3: /* Modulo X check, all ones and zeros */
-		p1=0;
-		for (i=0; i<MOD_SZ; i++) {
-			p2 = ~p1;
-			modtst(i, tseq[v->test].iter, p1, p2);
-			BAILOUT
+	case 3: /* Modulo 20, random */
+		for (j=0; j<tseq[v->test].iter; j++) {
+			p1 = rand();
+			for (i=0; i<MOD_SZ; i++) {
+				p2 = ~p1;
+				modtst(i, tseq[v->test].iter, p1, p2);
+				BAILOUT
 
-			/* Switch patterns */
-			p2 = p1;
-			p1 = ~p2;
-			modtst(i, tseq[v->test].iter, p1,p2);
-			BAILOUT
+				/* Switch patterns */
+				p2 = p1;
+				p1 = ~p2;
+				modtst(i, tseq[v->test].iter, p1, p2);
+				BAILOUT
+			}
 		}
 		break;
 
@@ -333,15 +405,15 @@ void do_test(void)
 		 *   The lower limit is less than START_ADR
 		 * - There is more than 1 meg of memory
 		 */
-		if (windows[window].start <
-			(LOW_TEST_ADR + (_end - _start)) >> 12) {
-			if (v->pmap[v->msegs-1].end >
-				(((HIGH_TEST_ADR + (_end - _start)) >> 12) +1)) {
+		if (windows[window].start < 
+			((ulong)&_start + (_end - _start)) >> 12) {
+			if (v->pmap[v->msegs-1].end > 
+				(((high_test_adr + (_end - _start)) >> 12)+1)) {
 				/* We need the high copy and we have enough
 				 * memory so use it.
 				 */
-				run_at(HIGH_TEST_ADR);
-			} else {
+				run_at(high_test_adr);
+			} else { 
 				/* We can't use this window so skip it */
 				goto skip_window;
 			}
@@ -374,8 +446,12 @@ void do_test(void)
 			v->pptr = 0;
 			cprint(0, COL_MID+8,
 				"                                         ");
+			if (v->ecount == 0 && v->testsel < 0) {
+			    cprint(LINE_MSG, COL_MSG,
+				"Pass complete, no errors, press Esc to exit");
+			}
 		}
-
+		
 		/* We always start a pass with the low copy */
 		run_at(LOW_TEST_ADR);
 	}

@@ -44,6 +44,10 @@ typedef unsigned long ulong;
 #define BAILOUT		if (bail) goto skip_test;
 #define BAILR		if (bail) return;
 
+#define DMI_SEARCH_START  0x0000F000
+#define DMI_SEARCH_LENGTH 0x000F0FFF
+#define MAX_DMI_MEMDEVS 16
+
 #define RES_START	0xa0000
 #define RES_END		0x100000
 #define SCREEN_ADR	0xb8000
@@ -71,6 +75,8 @@ typedef unsigned long ulong;
 #define LINE_HEADER	12
 #define LINE_SCROLL	14
 #define BAR_SIZE	(78-COL_MID-9)
+#define LINE_MSG	18
+#define COL_MSG		18
 
 #define POP_W	30
 #define POP_H	15
@@ -83,10 +89,9 @@ typedef unsigned long ulong;
 #define NULL	0
 
 /* memspeed operations */
-#define MS_BCOPY	1
-#define MS_COPY		2
-#define MS_WRITE	3
-#define MS_READ		4
+#define MS_COPY		1
+#define MS_WRITE	2
+#define MS_READ		3
 
 #define SZ_MODE_BIOS		1
 #define SZ_MODE_BIOS_RES	2
@@ -94,6 +99,7 @@ typedef unsigned long ulong;
 
 #define getCx86(reg) ({ outb((reg), 0x22); inb(0x23); })
 int memcmp(const void *s1, const void *s2, ulong count);
+int strncmp(const char *s1, const char *s2, ulong n);
 void *memmove(void *dest, const void *src, ulong n);
 int query_linuxbios(void);
 int query_pcbios(void);
@@ -102,6 +108,7 @@ void printpatn(void);
 void printpatn(void);
 void itoa(char s[], int n);
 void reverse(char *p);
+void serial_console_setup(char *param);
 void serial_echo_init(void);
 void serial_echo_print(const char *s);
 void ttyprint(int y, int x, const char *s);
@@ -130,6 +137,7 @@ void set_cache(int val);
 void check_input(void);
 void footer(void);
 void scroll(void);
+void clear_scroll(void);
 void popup(void);
 void popdown(void);
 void popclear(void);
@@ -161,15 +169,19 @@ void parity_err(ulong edi, ulong esi);
 void start_config(void);
 void clear_screen(void);
 void paging_off(void);
+void show_spd(void);
 int map_page(unsigned long page);
 void *mapping(unsigned long page_address);
 void *emapping(unsigned long page_address);
 unsigned long page_of(void *ptr);
+ulong memspeed(ulong src, ulong len, int iter, int type);
+ulong correct_tsc(ulong el_org);
 
-#define PRINTMODE_ADDRESSES 0
-#define PRINTMODE_PATTERNS  1
-#define PRINTMODE_DMI	    2	
+#define PRINTMODE_SUMMARY   0
+#define PRINTMODE_ADDRESSES 1
+#define PRINTMODE_PATTERNS  2
 #define PRINTMODE_NONE      3
+#define PRINTMODE_DMI      	4
 
 #define BADRAM_MAXPATNS 10
 
@@ -253,9 +265,29 @@ struct cpu_ident {
 	unsigned char cache_info[16];
 	long pwrcap;
 	long ext;
+	long feature_flag;
 };
-#define X86_FEATURE_PAE		(0*32+ 6) /* Physical Address Extensions */
 
+struct xadr {
+	ulong page;
+	ulong offset;
+};
+
+struct err_info {
+	struct xadr   low_addr;
+	struct xadr   high_addr;
+	unsigned long ebits;
+	long	      tbits;
+	short         min_bits;
+	short         max_bits;
+	unsigned long maxl;
+	unsigned long eadr;
+        unsigned long exor;
+        unsigned long cor_err;
+	short         hdr_flag;
+};
+
+#define X86_FEATURE_PAE		(0*32+ 6) /* Physical Address Extensions */
 #define MAX_MEM_SEGMENTS E820MAX
 
 /* Define common variables accross relocations of memtest86 */
@@ -277,6 +309,7 @@ struct vars {
 	int pptr;
 	int tptr;
 	int beepmode;
+	struct err_info erri;
 	struct pmap pmap[MAX_MEM_SEGMENTS];
 	struct mmap map[MAX_MEM_SEGMENTS];
 	ulong plim_lower;

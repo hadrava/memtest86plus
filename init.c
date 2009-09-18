@@ -3,9 +3,9 @@
  * Released under version 2 of the Gnu Public License.
  * By Chris Brady, cbrady@sgi.com
  * ----------------------------------------------------
- * MemTest86+ V1.70 Specific code (GPL V2.0)
+ * MemTest86+ V2.00 Specific code (GPL V2.0)
  * By Samuel DEMEULEMEESTER, sdemeule@memtest.org
- * http://www.x86-secret.com - http://www.memtest.org
+ * http://www.canardplus.com - http://www.memtest.org
  */
 
 #include "test.h"
@@ -15,9 +15,16 @@
 #include "pci.h"
 #include "io.h"
 
+#define rdmsr(msr,val1,val2) \
+	__asm__ __volatile__("rdmsr" \
+			  : "=a" (val1), "=d" (val2) \
+			  : "c" (msr))
+
+extern struct tseq tseq[];
 extern short memsz_mode;
 extern short firmware;
-int beepmode;
+extern short dmi_initialized;
+extern int dmi_err_cnts[MAX_DMI_MEMDEVS];
 
 struct cpu_ident cpu_id;
 ulong st_low, st_high;
@@ -25,10 +32,14 @@ ulong end_low, end_high;
 ulong cal_low, cal_high;
 ulong extclock;
 
-static ulong memspeed(ulong src, ulong len, int iter);
+int l1_cache, l2_cache;
+int tsc_invariable = 0;
+
+ulong memspeed(ulong src, ulong len, int iter, int type);
 static void cpu_type(void);
 static void cacheable(void);
 static int cpuspeed(void);
+int beepmode;
 
 static void display_init(void)
 {
@@ -52,7 +63,7 @@ static void display_init(void)
 	for(i=0, pp=(char *)(SCREEN_ADR+1); i<TITLE_WIDTH; i++, pp+=2) {
 		*pp = 0x20;
 	}
-	cprint(0, 0, "      Memtest86  v1.70      ");
+	cprint(0, 0, "      Memtest86  v2.00      ");
 
 	for(i=0, pp=(char *)(SCREEN_ADR+1); i<2; i++, pp+=30) {
 		*pp = 0xA4;
@@ -102,9 +113,36 @@ void init(void)
 	beepmode = BEEP_MODE;
 
 	v->test = 0;
+	v->pass = 0;
+	v->msg_line = 0;
+	v->ecount = 0;
+	v->ecc_ecount = 0;
 	v->testsel = -1;
 	v->msg_line = LINE_SCROLL-1;
 	v->scroll_start = v->msg_line * 160;
+	v->erri.low_addr.page = 0x7fffffff;
+	v->erri.low_addr.offset = 0xfff;
+	v->erri.high_addr.page = 0;
+	v->erri.high_addr.offset = 0;
+	v->erri.min_bits = 32;
+	v->erri.max_bits = 0;
+	v->erri.min_bits = 32;
+	v->erri.max_bits = 0;
+	v->erri.maxl = 0;
+	v->erri.cor_err = 0;
+	v->erri.ebits = 0;
+	v->erri.hdr_flag = 0;
+	v->erri.tbits = 0;
+	for (i=0; tseq[i].msg != NULL; i++) {
+		tseq[i].errors = 0;
+	}
+	if (dmi_initialized) {
+		for (i=0; i < MAX_DMI_MEMDEVS; i++){
+			if (dmi_err_cnts[i] > 0) {
+				dmi_err_cnts[i] = 0;
+			}
+		}
+	}
 
 	cprint(LINE_CPU+1, 0, "L1 Cache: Unknown ");
 	cprint(LINE_CPU+2, 0, "L2 Cache: Unknown ");
@@ -137,6 +175,8 @@ void init(void)
 		cprint(i, COL_MID-2, "| ");
 	}
 	footer();
+	// Default Print Mode
+	// v->printmode=PRINTMODE_SUMMARY;
 	v->printmode=PRINTMODE_ADDRESSES;
 	v->numpatn=0;
 	find_ticks();
@@ -513,6 +553,10 @@ void cpu_type(void)
 				}
 				off = 16;
 				break;
+			case 2:
+				cprint(LINE_CPU, 0, "AMD Phenom X4");
+				off = 13;				
+				break;				
 			}
 			break;
 		}
@@ -637,6 +681,9 @@ void cpu_type(void)
 				case 0x49:
 					l2_cache = 4096;
 					break;
+				case 0x4e:
+					l2_cache = 6144;
+					break;
 				}
 			}
 
@@ -685,24 +732,41 @@ void cpu_type(void)
 					}
 					break;
 				case 6:
-					if (l2_cache == 128) {
-						cprint(LINE_CPU, 0, "Celeron");
-						off = 7;
+					if (((cpu_id.ext >> 16) & 0xF) != 0) {
+						tsc_invariable = 1;
+						cprint(LINE_CPU, 0, "Intel Nehalem");
+						off = 13;
 					} else {
-						cprint(LINE_CPU, 0, "Pentium II");
-						off = 10;
+						if (l2_cache == 128) {
+							cprint(LINE_CPU, 0, "Celeron");
+							off = 7;
+						} else {
+							cprint(LINE_CPU, 0, "Pentium II");
+							off = 10;
+						}
 					}
 					break;
 				case 7:
 				case 8:
 				case 10:
 				case 11:
-					if (l2_cache == 128) {
-						cprint(LINE_CPU, 0, "Celeron");
-						off = 7;
+					if (((cpu_id.ext >> 16) & 0xF) != 0) {
+						tsc_invariable = 1;
+						if (l2_cache < 1024) {
+							cprint(LINE_CPU, 0, "Celeron");
+							off = 7;
+						} else {
+							cprint(LINE_CPU, 0, "Intel Core 2");
+							off = 12;
+						}					
 					} else {
-						cprint(LINE_CPU, 0, "Pentium III");
-						off = 11;
+						if (l2_cache == 128) {
+							cprint(LINE_CPU, 0, "Celeron");
+							off = 7;
+						} else {
+							cprint(LINE_CPU, 0, "Pentium III");
+							off = 11;
+						}
 					}
 					break;
 				case 9:
@@ -726,8 +790,14 @@ void cpu_type(void)
 					off = 10;
 					break;				
 				case 15:
-					cprint(LINE_CPU, 0, "Intel Core 2");
-					off = 12;
+					if (l2_cache == 1024) {
+						cprint(LINE_CPU, 0, "Pentium E");
+						off = 9;
+					} else {
+						cprint(LINE_CPU, 0, "Intel Core 2");
+						off = 12;	
+					}				
+					tsc_invariable = 1;
 					break;
 				}
 				break;
@@ -806,14 +876,29 @@ void cpu_type(void)
 				off = 12;
 				break;
 			case 6: // VIA C3
-				if (cpu_id.step < 8) {
-					cprint(LINE_CPU, 0, "VIA C3 Samuel2");
-					off = 14;
-				} else {
-					cprint(LINE_CPU, 0, "Via C3 Eden");
-					off = 11;
+				switch(cpu_id.model){
+					default:
+						if (cpu_id.step < 8) {
+							cprint(LINE_CPU, 0, "VIA C3 Samuel2");
+							off = 14;
+						} else {
+							cprint(LINE_CPU, 0, "VIA C3 Eden");
+							off = 11;
+						}
+						break;
+					case 10:
+						cprint(LINE_CPU, 0, "VIA Esther (C5J)");
+						off = 16;
+						break;
+					case 13:
+						cprint(LINE_CPU, 0, "VIA C7 (C5R)");
+						off = 12;
+						break;
+					case 15:
+						cprint(LINE_CPU, 0, "VIA Isaiah (CN)");
+						off = 15;
+						break;
 				}
-				break;
 			}
 			l1_cache = cpu_id.cache_info[3] + cpu_id.cache_info[7];
 			l2_cache = cpu_id.cache_info[11];
@@ -899,12 +984,11 @@ void cpu_type(void)
 	/* To measure L1 cache speed we use a block size that is 1/4th */
 	/* of the total L1 cache size since half of it is for instructions */
 	if (l1_cache) {
-		cprint(LINE_CPU+1, 10, "    K      ");
+		cprint(LINE_CPU+1, 0, "L1 Cache:     K  ");
 		dprint(LINE_CPU+1, 11, l1_cache, 3, 0);
-		if ((speed=memspeed((ulong)mapping(0x100),
-				(l1_cache / 4) * 1024, 50))) {
-			cprint(LINE_CPU+1, 15, "      MB/s");
-			dprint(LINE_CPU+1, 15, speed, 6, 0);
+		if ((speed=memspeed((ulong)mapping(0x100), (l1_cache / 4) * 1024, 50, MS_COPY))) {
+			cprint(LINE_CPU+1, 16, "       MB/s");
+			dprint(LINE_CPU+1, 16, speed, 6, 0);
 		}
 	}
 
@@ -913,8 +997,8 @@ void cpu_type(void)
 	/* the size of the L1 cache.  We have to fudge if the L1 */
 	/* cache is bigger than the L2 */
 	if (l2_cache) {
-		cprint(LINE_CPU+2, 9, "     K     ");
-		cprint(LINE_CPU+2, 0, "L2 Cache:    ?K");
+		cprint(LINE_CPU+2, 0, "L2 Cache:     K  ");
+		dprint(LINE_CPU+2, 10, l2_cache, 4, 0);
 		dprint(LINE_CPU+2, 10, l2_cache, 4, 0);
 
 		if (l2_cache < l1_cache) {
@@ -922,9 +1006,9 @@ void cpu_type(void)
 		} else {
 			i = l1_cache;
 		}
-		if ((speed=memspeed((ulong)mapping(0x100), i*1024, 50))) {
-			cprint(LINE_CPU+2, 15, "      MB/s");
-			dprint(LINE_CPU+2, 15, speed, 6, 0);
+		if ((speed=memspeed((ulong)mapping(0x100), i*1024, 50, MS_COPY))) {
+			cprint(LINE_CPU+2, 16, "       MB/s");
+			dprint(LINE_CPU+2, 16, speed, 6, 0);
 		}
 	}
 
@@ -936,9 +1020,9 @@ void cpu_type(void)
 	if ((1 + (i * 2)) > (v->plim_upper << 2)) {
 		i = ((v->plim_upper <<2) - 1) / 2;
 	}
-	if((speed = memspeed((ulong)mapping(0x100), i*1024, 40))) {
-		cprint(LINE_CPU+3, 15, "      MB/s");
-		dprint(LINE_CPU+3, 15, speed, 6, 0);
+	if((speed = memspeed((ulong)mapping(0x100), i*1024, 40, MS_COPY))) {
+		cprint(LINE_CPU+3, 16, "       MB/s");
+		dprint(LINE_CPU+3, 16, speed, 6, 0);
 	}
 
 	/* Record the starting time */
@@ -976,7 +1060,7 @@ static void cacheable(void)
 		}
 		/* Map the range and perform the test */
 		map_page(paddr);
-		speed = memspeed((ulong)mapping(paddr), 32*4096, 1);
+		speed = memspeed((ulong)mapping(paddr), 32*4096, 1, MS_COPY);
 		if (pspeed) {
 			if (speed < pspeed) {
 				cached -= 32;
@@ -1025,13 +1109,16 @@ static int cpuspeed(void)
 	if (loops < 4 || end_low < 50000) {
 		return(-1);
 	}
-	v->clks_msec = end_low/50;
+
+	if(tsc_invariable){ end_low = correct_tsc(end_low);	}
+
+	v->clks_msec = end_low/50;	
 	return(v->clks_msec);
 }
 
 /* Measure cache/memory speed by copying a block of memory. */
 /* Returned value is kbytes/second */
-static ulong memspeed(ulong src, ulong len, int iter)
+ulong memspeed(ulong src, ulong len, int iter, int type)
 {
 	ulong dst;
 	ulong wlen;
@@ -1045,11 +1132,11 @@ static ulong memspeed(ulong src, ulong len, int iter)
 	for (i=0; i<iter; i++) {
 		asm __volatile__ (
 			"movl %0,%%esi\n\t" \
-			"movl %1,%%edi\n\t" \
-			"movl %2,%%ecx\n\t" \
-			"cld\n\t" \
-			"rep\n\t" \
-			"movsl\n\t" \
+       		 	"movl %1,%%edi\n\t" \
+       		 	"movl %2,%%ecx\n\t" \
+       		 	"cld\n\t" \
+       		 	"rep\n\t" \
+       		 	"movsl\n\t" \
 				:: "g" (src), "g" (dst), "g" (0)
 			: "esi", "edi", "ecx"
 		);
@@ -1065,33 +1152,78 @@ static ulong memspeed(ulong src, ulong len, int iter)
 		"0" (cal_low), "1" (cal_high)
 	);
 
-	/* Do the first copy to prime the cache */
-	asm __volatile__ (
-		"movl %0,%%esi\n\t" \
-		"movl %1,%%edi\n\t" \
-		"movl %2,%%ecx\n\t" \
-		"cld\n\t" \
-		"rep\n\t" \
-		"movsl\n\t" \
-			:: "g" (src), "g" (dst), "g" (wlen)
-		: "esi", "edi", "ecx"
-	);
 
 	/* Now measure the speed */
-	asm __volatile__ ("rdtsc":"=a" (st_low),"=d" (st_high));
-	for (i=0; i<iter; i++) {
+	switch (type) {
+	case MS_COPY:
+		/* Do the first copy to prime the cache */
 		asm __volatile__ (
 			"movl %0,%%esi\n\t" \
 			"movl %1,%%edi\n\t" \
-			"movl %2,%%ecx\n\t" \
-			"cld\n\t" \
-			"rep\n\t" \
-			"movsl\n\t" \
-				:: "g" (src), "g" (dst), "g" (wlen)
+       		 	"movl %2,%%ecx\n\t" \
+       		 	"cld\n\t" \
+       		 	"rep\n\t" \
+       		 	"movsl\n\t" \
+			:: "g" (src), "g" (dst), "g" (wlen)
 			: "esi", "edi", "ecx"
 		);
+		asm __volatile__ ("rdtsc":"=a" (st_low),"=d" (st_high));
+		for (i=0; i<iter; i++) {
+		        asm __volatile__ (
+				"movl %0,%%esi\n\t" \
+				"movl %1,%%edi\n\t" \
+       			 	"movl %2,%%ecx\n\t" \
+       			 	"cld\n\t" \
+       			 	"rep\n\t" \
+       			 	"movsl\n\t" \
+				:: "g" (src), "g" (dst), "g" (wlen)
+				: "esi", "edi", "ecx"
+			);
+		}
+		asm __volatile__ ("rdtsc":"=a" (end_low),"=d" (end_high));
+		break;
+	case MS_WRITE:
+		asm __volatile__ ("rdtsc":"=a" (st_low),"=d" (st_high));
+		for (i=0; i<iter; i++) {
+			asm __volatile__ (
+       			 	"movl %0,%%ecx\n\t" \
+				"movl %1,%%edi\n\t" \
+       			 	"movl %2,%%eax\n\t" \
+                                "rep\n\t" \
+                                "stosl\n\t"
+                                :: "g" (wlen), "g" (dst), "g" (0)
+				: "edi", "ecx", "eax"
+                        );
+		}
+		asm __volatile__ ("rdtsc":"=a" (end_low),"=d" (end_high));
+		break;
+	case MS_READ:
+		asm __volatile__ (
+			"movl %0,%%esi\n\t" \
+			"movl %1,%%ecx\n\t" \
+       	 		"cld\n\t" \
+       	 		"L1:\n\t" \
+			"lodsl\n\t" \
+       	 		"loop L1\n\t" \
+			:: "g" (src), "g" (wlen)
+			: "esi", "ecx"
+		);
+		asm __volatile__ ("rdtsc":"=a" (st_low),"=d" (st_high));
+		for (i=0; i<iter; i++) {
+		        asm __volatile__ (
+				"movl %0,%%esi\n\t" \
+				"movl %1,%%ecx\n\t" \
+       		 		"cld\n\t" \
+       		 		"L2:\n\t" \
+				"lodsl\n\t" \
+       		 		"loop L2\n\t" \
+				:: "g" (src), "g" (wlen)
+				: "esi", "ecx"
+			);
+		}
+		asm __volatile__ ("rdtsc":"=a" (end_low),"=d" (end_high));
+		break;
 	}
-	asm __volatile__ ("rdtsc":"=a" (end_low),"=d" (end_high));
 
 	/* Compute the elapsed time */
 	asm __volatile__ (
@@ -1115,8 +1247,10 @@ static ulong memspeed(ulong src, ulong len, int iter)
 		return(0);
 	}
 
-	/* Since a copy does both a read & write we need to adjuect the time */
-	end_low /= 2;
+	/* If this was a copy adjust the time */
+	if (type == MS_COPY) {
+		end_low /= 2;
+	}
 
 	/* Convert to clocks/KB */
 	end_low /= len;
@@ -1126,6 +1260,42 @@ static ulong memspeed(ulong src, ulong len, int iter)
 		return(0);
 	}
 
+	if(tsc_invariable){ end_low = correct_tsc(end_low);	}
+		
 	/* Convert to kbytes/sec */
 	return((v->clks_msec)/end_low);
+}
+
+ulong correct_tsc(ulong el_org)
+{
+	
+	float coef_now, coef_max;
+	int msr_lo, msr_hi, is_xe;
+	
+	rdmsr(0x198, msr_lo, msr_hi);
+	is_xe = (msr_lo >> 31) & 0x1;		
+	
+	if(is_xe){
+		rdmsr(0x198, msr_lo, msr_hi);
+		coef_max = ((msr_hi >> 8) & 0x1F);	
+		if ((msr_hi >> 14) & 0x1) { coef_max = coef_max + 0.5f; }
+	} else {
+		rdmsr(0x17, msr_lo, msr_hi);
+		coef_max = ((msr_lo >> 8) & 0x1F);
+		if ((msr_lo >> 14) & 0x1) { coef_max = coef_max + 0.5f; }
+	}
+	
+	if((cpu_id.feature_flag >> 7) & 1) {
+		rdmsr(0x198, msr_lo, msr_hi);
+		coef_now = ((msr_lo >> 8) & 0x1F);
+		if ((msr_lo >> 14) & 0x1) { coef_now = coef_now + 0.5f; }
+	} else {
+		rdmsr(0x2A, msr_lo, msr_hi);
+		coef_now = (msr_lo >> 22) & 0x1F;
+	}
+		
+	if(coef_max && coef_now) { el_org = (ulong)(el_org * coef_now / coef_max); }
+	
+	return el_org;
+
 }

@@ -1,4 +1,4 @@
-; A loader for www.Memtest86.com images, by Eric Auer 2003.
+; A loader for www.memtest.org images, by Eric Auer 2003.
 ; This assumes that the image starts with the boot sector,
 ; which has the size of setup.S in sectors in a byte at offset
 ; 1f1h (497). Further, I assume setup.S directly after the boot
@@ -12,8 +12,8 @@
 ; The good thing is that you get a single file which can be
 ; compressed, for example with http://upx.sf.net/ (UPX).
 
-%define fullsize (99256 + buffer - exeh)
-	; 99256 is the size of memtest86+ V1.70, adjust as needed!
+%define fullsize (111512 + buffer - exeh)
+	; 111512 is the size of memtest86+ V2.00, adjust as needed!
 
 %define stacksize 2048
 %define stackpara ((stacksize + 15) / 16)
@@ -46,6 +46,11 @@ exeh:	db "MZ"
 	; loaded part begins here (set CS so that IP is 100h here)
 
 start:	; entry point	; if you use obj + linker, use "..start:"
+  mov    ah, 01h      
+  mov    bh, 00h
+  mov   cx, 2000h
+  int    10h
+
 	mov ax,cs	; ***
 	mov ds,ax	; ***
 	mov es,ax	; ***

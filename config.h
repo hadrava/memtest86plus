@@ -15,6 +15,9 @@
 /*	to enable. */
 #define SERIAL_CONSOLE_DEFAULT 0
 
+/* SERIAL_TTY - The default serial port to use. 0=ttyS0, 1=ttyS1 */ 
+#define SERIAL_TTY 0
+
 /* SERIAL_BAUD_RATE - Baud rate for the serial console */
 #define SERIAL_BAUD_RATE 9600
 

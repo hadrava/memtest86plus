@@ -7,6 +7,7 @@ int pci_conf_write(unsigned bus, unsigned dev, unsigned fn, unsigned reg,
 	unsigned len, unsigned long value);
 int pci_init(void);
 
+
 /*
  * Under PCI, each device has 256 bytes of configuration address space,
  * of which the first 64 bytes are standardized as follows:

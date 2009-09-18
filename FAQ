@@ -304,7 +304,7 @@
 
 - When I run install.bat it doesn't write anything to floppy.
 
-  You most likely have unpacked the memtest+-1.xx.floppy.zip file into a
+  You most likely have unpacked the memtest+-2.xx.floppy.zip file into a
   folder with a long pathname and/or containing + and - signs. It seems
   rawrite doesn't like that. Just move the files you unpacked to a directory
   like c:\memtest and execure it from there.
