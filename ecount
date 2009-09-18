@@ -1,0 +1,544 @@
+config.c:48:			cprint(POP_Y+3+v->cache_flag, POP_X+5, ">");
+config.c:54:					v->cache_flag = 0;
+config.c:55:					set_cache(tseq[v->test].cache);
+config.c:61:					v->cache_flag = 1;
+config.c:62:					if (tseq[v->test].cache == 0)  {
+config.c:71:					v->cache_flag = 2;
+config.c:72:					if (tseq[v->test].cache == 1)  {
+config.c:97:			if (v->testsel < 0) {
+config.c:98:				cprint(POP_Y+3+v->xtst_flag, POP_X+5, ">");
+config.c:107:					v->xtst_flag = 0;
+config.c:108:					if (v->test > DEFTESTS) {
+config.c:111:					v->testsel = -1;
+config.c:118:					v->xtst_flag = 1;
+config.c:119:					if (v->test <= DEFTESTS) {
+config.c:122:					v->testsel = -1;
+config.c:129:					v->xtst_flag = 2;
+config.c:130:					v->testsel = -1;
+config.c:149:						v->testsel = i;
+config.c:183:					aprint(POP_Y+4, POP_X+13, v->plim_lower);
+config.c:187:					if (page + 1 <= v->plim_upper) {
+config.c:188:						v->plim_lower = page;
+config.c:202:					aprint(POP_Y+4, POP_X+13, v->plim_upper);
+config.c:206:					if  (page - 1 >= v->plim_lower) {
+config.c:207:						v->plim_upper = page;
+config.c:216:					v->plim_lower = 0;
+config.c:217:					v->plim_upper = v->pmap[v->msegs - 1].end;
+config.c:237:			if (v->e820_nr) {
+config.c:241:				cprint(POP_Y+2+v->memsz_mode, POP_X+5, ">");
+config.c:245:				if (v->memsz_mode == SZ_MODE_BIOS) {
+config.c:255:					v->memsz_mode = SZ_MODE_BIOS;
+config.c:258:					v->test = 0;
+config.c:259:					v->pass = 0;
+config.c:260:					v->total_ticks = 0;
+config.c:265:					v->memsz_mode = SZ_MODE_BIOS_RES;
+config.c:268:					v->test = 0;
+config.c:269:					v->pass = 0;
+config.c:270:					v->total_ticks = 0;
+config.c:275:					v->memsz_mode = SZ_MODE_PROBE;
+config.c:278:					v->test = 0;
+config.c:279:					v->pass = 0;
+config.c:280:					v->total_ticks = 0;
+config.c:315:			cprint(POP_Y+3+v->printmode, POP_X+5, ">");
+config.c:321:					v->printmode=PRINTMODE_ADDRESSES;
+config.c:322:					v->eadr = 0;
+config.c:327:					v->printmode=PRINTMODE_PATTERNS;
+config.c:333:					v->printmode=PRINTMODE_NONE;
+config.c:437:	v->selected_pages = 0;
+config.c:438:	for (i=0; i< v->msegs; i++) {
+config.c:440:		if (v->pmap[i].start >= v->plim_lower &&
+config.c:441:				v->pmap[i].end <= v->plim_upper) {
+config.c:442:			v->selected_pages += (v->pmap[i].end - v->pmap[i].start);
+config.c:446:		if (v->pmap[i].start < v->plim_lower) {
+config.c:448:			if (v->pmap[i].end < v->plim_lower) {
+config.c:453:			if (v->pmap[i].end > v->plim_upper) {
+config.c:454:				v->selected_pages += 
+config.c:455:					v->plim_upper - v->plim_lower;
+config.c:458:				v->selected_pages += 
+config.c:459:					(v->pmap[i].end - v->plim_lower);
+config.c:464:		if (v->pmap[i].end > v->plim_upper) {
+config.c:466:			if (v->pmap[i].start > v->plim_upper) {
+config.c:470:			v->selected_pages += 
+config.c:471:				(v->plim_upper - v->pmap[i].start);
+controller.c~:112:	v->pmap[i].start = (START_ADR + (1 << 12) - 1) >> 12;
+controller.c~:113:	p = (unsigned long *)(v->pmap[i].start << 12);
+controller.c~:123:			v->pmap[i].end = SKIP_START >> 12;
+controller.c~:126:			v->pmap[i].start = 0;
+controller.c~:132:			v->pmap[i].end = ((unsigned long)p) >> 12;
+controller.c~:150:					v->pmap[i].start = ((unsigned long)p) >> 12;
+controller.c~:168:	if (v->pmap[i].start) {
+controller.c~:169:		v->pmap[i].end = ((unsigned long)m_lim) >> 12;
+controller.c~:171:		v->pmap[i].start = 0;
+controller.c~:173:	v->msegs = i;
+controller.c~:174:	v->ecc_cap = ECC_UNKNOWN;
+controller.c~:175:	v->ecc_mode = ECC_UNKNOWN;
+controller.c~:182:	v->ecc_cap = ECC_NONE;
+controller.c~:183:	v->ecc_mode = ECC_NONE;
+controller.c~:204:	v->ecc_cap = ECC_CORRECT;
+controller.c~:205:	v->ecc_mode = (dram_status & (1 << 2))?ECC_CORRECT: ECC_NONE;
+controller.c~:255:	v->ecc_cap = ECC_CORRECT;
+controller.c~:256:	v->ecc_mode = ddim[(ecc_mode_status >> 10)&3]; 
+controller.c~:311:	v->pmap[0].start = 0x000000;
+controller.c~:312:	v->pmap[0].end =   0x0000a0;
+controller.c~:313:	v->pmap[1].start = 0x000100;
+controller.c~:314:	v->pmap[1].end =   0x0fc000;
+controller.c~:315:	v->pmap[2].start = 0x100000;
+controller.c~:316:	v->pmap[2].end   = 0x180000;
+controller.c~:317:	v->msegs = 3;
+controller.c~:320:	v->ecc_cap = ECC_CORRECT;
+controller.c~:338:	v->ecc_cap = ECC_CORRECT;
+controller.c~:339:	v->ecc_mode = ddim[(nbxcfg >> 7)&3];
+controller.c~:382:	v->ecc_cap = ECC_CORRECT;
+controller.c~:383:	v->ecc_mode = ddim[(mchcfg >> 7)&3]; 
+controller.c~:427:	v->ecc_cap = ECC_CORRECT;
+controller.c~:428:	v->ecc_mode = ddim[(drc >> 20)&3];
+controller.c~:469:	v->ecc_cap = ECC_CORRECT;
+controller.c~:470:	v->ecc_mode = ddim[(mchcfg >> 7)&3];
+controller.c~:509:	v->ecc_cap = ECC_CORRECT;
+controller.c~:510:	v->ecc_mode = ddim[(mchcfg >> 7)&3]; 
+controller.c~:553:	v->ecc_cap = ECC_CORRECT;
+controller.c~:554:	v->ecc_mode = ddim[(drc >> 7)&3]; 
+controller.c~:683:	for(i = 0; i < sizeof(v->controller_name); i++) {
+controller.c~:686:		v->controller_name[i] = ch;
+controller.c~:690:	v->controller_name[sizeof(v->controller_name) -1] = '\0';
+init.c:74:	v->memsz_mode = SZ_MODE_BIOS;
+init.c:76:	v->firmware = FIRMWARE_UNKNOWN;
+init.c:77:	if ((v->firmware == FIRMWARE_UNKNOWN) && 
+init.c:78:		(v->memsz_mode != SZ_MODE_PROBE)) {
+init.c:80:			v->firmware = FIRMWARE_LINUXBIOS;
+init.c:83:			v->firmware = FIRMWARE_PCBIOS;
+init.c:95:	v->test = 0;
+init.c:96:	v->testsel = -1;
+init.c:97:	v->msg_line = LINE_SCROLL-1;
+init.c:98:	v->scroll_start = v->msg_line * 160;
+init.c:103:	aprint(LINE_CPU+3, 10, v->test_pages);
+init.c:108:	if (v->rdtsc) {
+init.c:128:	v->printmode=PRINTMODE_ADDRESSES;
+init.c:129:	v->numpatn=0;
+init.c:138:	if (!v->pae)
+init.c:157:	if (!v->pae)
+init.c:192:	if (!v->pae || (window >= 32)) {
+init.c:266:	v->rdtsc = 0;
+init.c:267:	v->pae = 0;
+init.c:323:		v->pae = 1;
+init.c:652:	if ((1 + (i * 2)) > (v->plim_upper << 2)) {
+init.c:653:		i = ((v->plim_upper <<2) - 1) / 2;
+init.c:661:        asm __volatile__ ("rdtsc":"=a" (v->startl),"=d" (v->starth));
+init.c:662:        v->snapl = v->startl;
+init.c:663:        v->snaph = v->starth;
+init.c:664:	v->rdtsc = 1;
+init.c:673:	mem_top = v->pmap[v->msegs -1].end;
+init.c:722:	v->clks_msec = end_low/48;
+init.c:723:	return(v->clks_msec);
+init.c:824:	return((v->clks_msec)/end_low);
+init.c~:61:	v->memsz_mode = SZ_MODE_BIOS;
+init.c~:63:	v->firmware = FIRMWARE_UNKNOWN;
+init.c~:64:	if ((v->firmware == FIRMWARE_UNKNOWN) && 
+init.c~:65:		(v->memsz_mode != SZ_MODE_PROBE)) {
+init.c~:67:			v->firmware = FIRMWARE_LINUXBIOS;
+init.c~:70:			v->firmware = FIRMWARE_PCBIOS;
+init.c~:76:	v->test = 0;
+init.c~:77:	v->testsel = -1;
+init.c~:78:	v->msg_line = LINE_SCROLL-1;
+init.c~:79:	v->scroll_start = v->msg_line * 160;
+init.c~:84:	aprint(LINE_CPU+3, 10, v->test_pages);
+init.c~:88:	if (v->rdtsc) {
+init.c~:109:	v->printmode=PRINTMODE_ADDRESSES;
+init.c~:110:	v->numpatn=0;
+init.c~:119:	if (!v->pae)
+init.c~:138:	if (!v->pae)
+init.c~:173:	if (!v->pae || (window >= 32)) {
+init.c~:247:	v->rdtsc = 0;
+init.c~:248:	v->pae = 0;
+init.c~:304:		v->pae = 1;
+init.c~:633:	if ((1 + (i * 2)) > (v->plim_upper << 2)) {
+init.c~:634:		i = ((v->plim_upper <<2) - 1) / 2;
+init.c~:642:        asm __volatile__ ("rdtsc":"=a" (v->startl),"=d" (v->starth));
+init.c~:643:        v->snapl = v->startl;
+init.c~:644:        v->snaph = v->starth;
+init.c~:645:	v->rdtsc = 1;
+init.c~:654:	mem_top = v->pmap[v->msegs -1].end;
+init.c~:703:	v->clks_msec = end_low/48;
+init.c~:704:	return(v->clks_msec);
+init.c~:805:	return((v->clks_msec)/end_low);
+lib.c:102:	if (v->msg_line < 23) {
+lib.c:103:		v->msg_line++;
+lib.c:401:		if (v->cache_flag) {
+lib.c:409:		if (v->cache_flag) {
+lib.c~:102:	if (v->msg_line < 23) {
+lib.c~:103:		v->msg_line++;
+lib.c~:421:		if (v->cache_flag) {
+lib.c~:429:		if (v->cache_flag) {
+main.c:143:	if (v->firsttime == 0) {
+main.c:150:		v->firsttime = 1;
+main.c:160:	if (map_page(v->map[0].pbase_addr) < 0) {
+main.c:165:	lo = page_of(v->map[0].start);
+main.c:166:	hi = page_of(v->map[segs -1].end);
+main.c:170:	aprint(LINE_RANGE, COL_MID+23, v->selected_pages);
+main.c:183:			:"b" (v->snapl), "c" (v->snaph)
+main.c:187:		t = h * ((unsigned)0xffffffff / v->clks_msec) / 1000;
+main.c:188:		t += (l / v->clks_msec) / 1000;
+main.c:199:		asm __volatile__ ("rdtsc":"=a" (v->snapl),"=d" (v->snaph));
+main.c:204:	if (v->testsel < 0) {
+main.c:205:		switch(v->xtst_flag) {
+main.c:207:			if (v->test > DEFTESTS) {
+main.c:212:			if (v->test <= DEFTESTS) {
+main.c:220:		if ((v->cache_flag == 1 && tseq[v->test].cache == 0) ||
+main.c:221:			(v->cache_flag == 2 && tseq[v->test].cache == 1)) {
+main.c:225:		v->test = v->testsel;
+main.c:227:	dprint(LINE_TST, COL_MID+6, v->test, 2, 1);
+main.c:228:	cprint(LINE_TST, COL_MID+9, tseq[v->test].msg);
+main.c:229:	set_cache(tseq[v->test].cache);
+main.c:235:		len = v->map[i].end - v->map[i].start;
+main.c:239:	test_ticks = find_ticks_for_test(chunks, v->test);
+main.c:241:	v->tptr = 0;
+main.c:243:	switch(tseq[v->test].pat) {
+main.c:249:		movinv1(tseq[v->test].iter,p1,p2);
+main.c:255:		movinv1(tseq[v->test].iter,p1,p2);
+main.c:263:			movinv1(tseq[v->test].iter,p1,p2);
+main.c:269:			movinv1(tseq[v->test].iter,p1,p2);
+main.c:276:			movinv32(tseq[v->test].iter,p1, 1, 0x80000000, 0, i);
+main.c:278:			movinv32(tseq[v->test].iter,~p1, 0xfffffffe,
+main.c:288:			modtst(i, tseq[v->test].iter, p1, p2);
+main.c:294:			modtst(i, tseq[v->test].iter, p1,p2);
+main.c:305:				modtst(i, tseq[v->test].iter, p1, p2);
+main.c:311:				modtst(i, tseq[v->test].iter, p1, p2);
+main.c:326:		block_move(tseq[v->test].iter);
+main.c:350:			if (v->pmap[v->msegs-1].end > 
+main.c:370:		v->test++;
+main.c:381:		if (tseq[v->test].msg == NULL || v->testsel >= 0) {
+main.c:382:			v->pass++;
+main.c:383:			dprint(LINE_INFO, COL_PASS, v->pass, 5, 0);
+main.c:384:			v->test = 0;
+main.c:385:			v->total_ticks = 0;
+main.c:386:			v->pptr = 0;
+main.c:401:	v->firsttime = 0;
+main.c:415:	v->pptr = 0;
+main.c:423:			len = v->map[i].end - v->map[i].start;
+main.c:429:	for (v->pass_ticks=0, i=0; tseq[i].msg != NULL; i++) {
+main.c:432:		if (v->testsel >= 0) {
+main.c:433:			if (i != v->testsel) {
+main.c:437:			if (v->xtst_flag == 0 && i > DEFTESTS) {
+main.c:440:			if (v->xtst_flag == 1 && i <= DEFTESTS) {
+main.c:443:			if ((v->cache_flag == 1 && tseq[i].cache == 0) ||
+main.c:444:				(v->cache_flag == 2 && tseq[i].cache == 1)) {
+main.c:448:		v->pass_ticks += find_ticks_for_test(chunks, i);
+main.c:474:	if (wstart < v->plim_lower) {
+main.c:475:		wstart = v->plim_lower;
+main.c:477:	if (wend > v->plim_upper) {
+main.c:478:		wend = v->plim_upper;
+main.c:484:	for (i=0; i< v->msegs; i++) {
+main.c:486:		start = v->pmap[i].start;
+main.c:487:		end = v->pmap[i].end;
+main.c:508:		hprint(LINE_SCROLL+(2*i), 46, v->plim_lower);
+main.c:510:		hprint(LINE_SCROLL+(2*i), 56, v->plim_upper);
+main.c:520:		hprint(LINE_SCROLL+(2*i+1), 24, v->pmap[i].start);
+main.c:522:		hprint(LINE_SCROLL+(2*i+1), 34, v->pmap[i].end);
+main.c:536:			v->map[segs].pbase_addr = start;
+main.c:537:			v->map[segs].start = mapping(start);
+main.c:538:			v->map[segs].end = emapping(end);
+memsize.c:31:	v->reserved_pages = 0;
+memsize.c:32:	v->test_pages = 0;
+memsize.c:36:	v->ext_mem_k = mem_info.e88_mem_k;
+memsize.c:37:	v->alt_mem_k = mem_info.e801_mem_k;
+memsize.c:38:	v->e820_nr   = mem_info.e820_nr;
+memsize.c:40:		v->e820[i].addr = mem_info.e820[i].addr;
+memsize.c:41:		v->e820[i].size = mem_info.e820[i].size;
+memsize.c:42:		v->e820[i].type = mem_info.e820[i].type;
+memsize.c:45:	switch (v->memsz_mode) {
+memsize.c:62:	v->plim_lower = 0;
+memsize.c:63:	v->plim_upper = v->pmap[v->msegs-1].end;
+memsize.c:66:	aprint(LINE_INFO, COL_RESERVED, v->reserved_pages);
+memsize.c:71:	if (v->firmware == FIRMWARE_PCBIOS) {
+memsize.c:74:	else if (v->firmware == FIRMWARE_LINUXBIOS) {
+memsize.c:85:	for(i = 0; i < v->msegs; i++) {
+memsize.c:88:			if (v->pmap[i].start > v->pmap[j].start) {
+memsize.c:96:			temp = v->pmap[i];
+memsize.c:97:			memmove(&v->pmap[j], &v->pmap[j+1], 
+memsize.c:99:			v->pmap[j] = temp;
+memsize.c:108:	for (i=0; i < v->e820_nr; i++) {
+memsize.c:110:		if (v->e820[i].type != E820_RAM) {
+memsize.c:113:		end = v->e820[i].addr;
+memsize.c:114:		end += v->e820[i].size;
+memsize.c:115:		v->pmap[n].start = (v->e820[i].addr + 4095) >> 12;
+memsize.c:116:		v->pmap[n].end = end >> 12;
+memsize.c:117:		v->test_pages += v->pmap[n].end - v->pmap[n].start;
+memsize.c:120:	v->msegs = n;
+memsize.c:130:	nr = sanitize_e820_map(v->e820, nm, v->e820_nr, res);
+memsize.c:160:			v->pmap[n].start = (start + 4095) >> 12;
+memsize.c:161:			v->pmap[n].end = end >> 12;
+memsize.c:162:			v->test_pages += v->pmap[n].end - v->pmap[n].start;
+memsize.c:165:			v->reserved_pages += nm[i].size >> 12;
+memsize.c:168:	v->msegs = n;
+memsize.c:183:	if (v->alt_mem_k < v->ext_mem_k) {
+memsize.c:184:		mem_size = v->ext_mem_k;
+memsize.c:187:		mem_size = v->alt_mem_k;
+memsize.c:191:	v->pmap[0].start = 0;
+memsize.c:192:	v->pmap[0].end = RES_START >> 12;
+memsize.c:193:	v->test_pages = RES_START >> 12;
+memsize.c:196:	v->pmap[1].start = (RES_END + 4095) >> 12;
+memsize.c:197:	v->pmap[1].end = (mem_size + 1024) >> 2;
+memsize.c:198:	v->test_pages += mem_size >> 2;
+memsize.c:199:	v->msegs = 2;
+memsize.c:394:	v->pmap[i].start = ((ulong)&_end + (1 << 12) - 1) >> 12;
+memsize.c:395:	p = (ulong *)(v->pmap[i].start << 12);
+memsize.c:404:			v->pmap[i].end = RES_START >> 12;
+memsize.c:405:			v->test_pages += (v->pmap[i].end - v->pmap[i].start);
+memsize.c:408:			v->pmap[i].start = 0;
+memsize.c:414:			v->pmap[i].end = ((ulong)p) >> 12;
+memsize.c:415:			v->test_pages += (v->pmap[i].end - v->pmap[i].start);
+memsize.c:417:			v->pmap[i].start = 0;
+memsize.c:433:					v->pmap[i].start = (ulong)p >> 12;
+memsize.c:451:	if (v->pmap[i].start) {
+memsize.c:452:		v->pmap[i].end = m_lim >> 12;
+memsize.c:453:		v->test_pages += (v->pmap[i].end - v->pmap[i].start);
+memsize.c:456:	v->msegs = i;
+memsize.c~:31:	v->reserved_pages = 0;
+memsize.c~:32:	v->test_pages = 0;
+memsize.c~:36:	v->ext_mem_k = mem_info.e88_mem_k;
+memsize.c~:37:	v->alt_mem_k = mem_info.e801_mem_k;
+memsize.c~:38:	v->e820_nr   = mem_info.e820_nr;
+memsize.c~:40:		v->e820[i].addr = mem_info.e820[i].addr;
+memsize.c~:41:		v->e820[i].size = mem_info.e820[i].size;
+memsize.c~:42:		v->e820[i].type = mem_info.e820[i].type;
+memsize.c~:45:	switch (v->memsz_mode) {
+memsize.c~:62:	v->plim_lower = 0;
+memsize.c~:63:	v->plim_upper = v->pmap[v->msegs-1].end;
+memsize.c~:66:	dprint(LINE_INFO, 19, v->reserved_pages << 2, 7, 0);
+memsize.c~:71:	if (v->firmware == FIRMWARE_PCBIOS) {
+memsize.c~:74:	else if (v->firmware == FIRMWARE_LINUXBIOS) {
+memsize.c~:85:	for(i = 0; i < v->msegs; i++) {
+memsize.c~:88:			if (v->pmap[i].start > v->pmap[j].start) {
+memsize.c~:96:			temp = v->pmap[i];
+memsize.c~:97:			memmove(&v->pmap[j], &v->pmap[j+1], 
+memsize.c~:99:			v->pmap[j] = temp;
+memsize.c~:108:	for (i=0; i < v->e820_nr; i++) {
+memsize.c~:110:		if (v->e820[i].type != E820_RAM) {
+memsize.c~:113:		end = v->e820[i].addr;
+memsize.c~:114:		end += v->e820[i].size;
+memsize.c~:115:		v->pmap[n].start = (v->e820[i].addr + 4095) >> 12;
+memsize.c~:116:		v->pmap[n].end = end >> 12;
+memsize.c~:117:		v->test_pages += v->pmap[n].end - v->pmap[n].start;
+memsize.c~:120:	v->msegs = n;
+memsize.c~:130:	nr = sanitize_e820_map(v->e820, nm, v->e820_nr, res);
+memsize.c~:160:			v->pmap[n].start = (start + 4095) >> 12;
+memsize.c~:161:			v->pmap[n].end = end >> 12;
+memsize.c~:162:			v->test_pages += v->pmap[n].end - v->pmap[n].start;
+memsize.c~:165:			v->reserved_pages += nm[i].size >> 12;
+memsize.c~:168:	v->msegs = n;
+memsize.c~:183:	if (v->alt_mem_k < v->ext_mem_k) {
+memsize.c~:184:		mem_size = v->ext_mem_k;
+memsize.c~:187:		mem_size = v->alt_mem_k;
+memsize.c~:191:	v->pmap[0].start = 0;
+memsize.c~:192:	v->pmap[0].end = RES_START >> 12;
+memsize.c~:193:	v->test_pages = RES_START >> 12;
+memsize.c~:196:	v->pmap[1].start = (RES_END + 4095) >> 12;
+memsize.c~:197:	v->pmap[1].end = (mem_size + 1024) >> 2;
+memsize.c~:198:	v->test_pages += mem_size >> 2;
+memsize.c~:199:	v->msegs = 2;
+memsize.c~:394:	v->pmap[i].start = ((ulong)&_end + (1 << 12) - 1) >> 12;
+memsize.c~:395:	p = (ulong *)(v->pmap[i].start << 12);
+memsize.c~:404:			v->pmap[i].end = RES_START >> 12;
+memsize.c~:405:			v->test_pages += (v->pmap[i].end - v->pmap[i].start);
+memsize.c~:408:			v->pmap[i].start = 0;
+memsize.c~:414:			v->pmap[i].end = ((ulong)p) >> 12;
+memsize.c~:415:			v->test_pages += (v->pmap[i].end - v->pmap[i].start);
+memsize.c~:417:			v->pmap[i].start = 0;
+memsize.c~:433:					v->pmap[i].start = (ulong)p >> 12;
+memsize.c~:451:	if (v->pmap[i].start) {
+memsize.c~:452:		v->pmap[i].end = m_lim >> 12;
+memsize.c~:453:		v->test_pages += (v->pmap[i].end - v->pmap[i].start);
+memsize.c~:456:	v->msegs = i;
+patn.c:70:	int i=v->numpatn;
+patn.c:73:		ulong tmpcost=combicost(v->patn[i].adr, v->patn[i].mask, adr1, mask1);
+patn.c:86:	ulong adr =v->patn[idx].adr;
+patn.c:87:	ulong mask=v->patn[idx].mask;
+patn.c:89:	v->patn[idx].adr ^= ~0L;	// Never select idx
+patn.c:91:	v->patn[idx].adr = adr;
+patn.c:103:		combine (v->patn [newidx].adr, v->patn[newidx].mask,
+patn.c:104:		         v->patn [   idx].adr, v->patn[   idx].mask,
+patn.c:106:		v->patn[newidx].adr =cadr;
+patn.c:107:		v->patn[newidx].mask=cmask;
+patn.c:108:		if (idx < --v->numpatn) {
+patn.c:109:			v->patn[idx].adr =v->patn[v->numpatn].adr;
+patn.c:110:			v->patn[idx].mask=v->patn[v->numpatn].mask;
+patn.c:123:	if (v->numpatn < BADRAM_MAXPATNS) {
+patn.c:124:		v->patn[v->numpatn].adr =adr;
+patn.c:125:		v->patn[v->numpatn].mask=DEFAULT_MASK;
+patn.c:126:		v->numpatn++;
+patn.c:127:		relocateiffree (v->numpatn-1);
+patn.c:131:		combine (v->patn [idx].adr, v->patn[idx].mask,
+patn.c:133:		v->patn[idx].adr =cadr;
+patn.c:134:		v->patn[idx].mask=cmask;
+test.c:40:		p = (ulong *)roundup((ulong)v->map[0].start, 0x1ffff);
+test.c:45:		end = v->map[segs-1].end;
+test.c:72:	if (v->pmap[v->msegs - 1].end > (0x800000 >> 12)) {
+test.c:81:			p = v->map[j].start;
+test.c:84:			end = v->map[j].end;
+test.c:136:		start = v->map[j].start;
+test.c:137:		end = v->map[j].end;
+test.c:180:		start = v->map[j].start;
+test.c:181:		end = v->map[j].end;
+test.c:257:		start = v->map[j].start;
+test.c:258:		end = v->map[j].end;
+test.c:298:			start = v->map[j].start;
+test.c:299:			end = v->map[j].end;
+test.c:364:			start = v->map[j].start;
+test.c:365:			end = v->map[j].end;
+test.c:448:		start = v->map[j].start;
+test.c:449:		end = v->map[j].end;
+test.c:516:			start = v->map[j].start;
+test.c:517:			end = v->map[j].end;
+test.c:623:			start = v->map[j].start;
+test.c:624:			end = v->map[j].end;
+test.c:735:		start = v->map[j].start;
+test.c:736:		end = v->map[j].end;
+test.c:779:			start = v->map[j].start;
+test.c:780:			end = v->map[j].end;
+test.c:838:		start = v->map[j].start;
+test.c:839:		end = v->map[j].end;
+test.c:916:		start = (ulong)v->map[j].start;
+test.c:925:		end = (ulong)v->map[j].end;
+test.c:985:		start = (ulong)v->map[j].start;
+test.c:994:		end = (ulong)v->map[j].end;
+test.c:1052:		start = (ulong)v->map[j].start;
+test.c:1061:		end = (ulong)v->map[j].end;
+test.c:1139:	if (v->printmode == PRINTMODE_ADDRESSES) {
+test.c:1142:		if ((ulong)adr == (ulong)v->eadr && xor == v->exor) {
+test.c:1144:			dprint(v->msg_line, 62, ++ecount, 5, 0);
+test.c:1149:	} else if (v->printmode == PRINTMODE_PATTERNS) {
+test.c:1168:	if (v->printmode == PRINTMODE_NONE) {
+test.c:1184:	if (v->printmode == PRINTMODE_NONE) {
+test.c:1204:	if (v->printmode == PRINTMODE_ADDRESSES) {
+test.c:1206:	} else if (v->printmode == PRINTMODE_PATTERNS) {
+test.c:1226:	++(v->ecount);
+test.c:1227:	tseq[v->test].errors++;
+test.c:1232:	dprint(LINE_INFO, COL_ERR, v->ecount, 6, 0);	
+test.c:1248:	dprint(v->msg_line, 0, v->test, 3, 0);
+test.c:1249:	dprint(v->msg_line, 4, v->pass, 5, 0);
+test.c:1250:	hprint(v->msg_line, 11, page);
+test.c:1251:	hprint2(v->msg_line, 19, offset, 3);
+test.c:1252:	cprint(v->msg_line, 22, " -      . MB");
+test.c:1253:	dprint(v->msg_line, 25, mb, 5, 0);
+test.c:1254:	dprint(v->msg_line, 31, ((page & 0xF)*10)/16, 1, 0);
+test.c:1268:	hprint(v->msg_line, 36, good);
+test.c:1269:	hprint(v->msg_line, 46, bad);
+test.c:1270:	hprint(v->msg_line, 56, xor);
+test.c:1271:	dprint(v->msg_line, 66, ecount, 5, 0);
+test.c:1272:	v->eadr = adr;
+test.c:1273:	v->exor = xor;
+test.c:1283:	if (v->printmode == PRINTMODE_NONE) {
+test.c:1288:	cprint(v->msg_line, 36, corrected?"corrected ":"          ");
+test.c:1289:	cprint(v->msg_line, 46, "         ");
+test.c:1290:	hprint2(v->msg_line, 56, syndrom, 2);
+test.c:1291:	cprint(v->msg_line, 66, "ECC"); 
+test.c:1292:	dprint(v->msg_line, 71, channel, 2, 0);
+test.c:1303:	if (v->test == 5) {
+test.c:1309:	if (v->printmode == PRINTMODE_NONE) {
+test.c:1313:	cprint(v->msg_line, 36, "Parity error detected                ");
+test.c:1329:       if (v->numpatn == 0)
+test.c:1334:       cprint (v->msg_line, 0, "badram=");
+test.c:1337:       for (idx = 0; idx < v->numpatn; idx++) {
+test.c:1343:               cprint (v->msg_line, x, "0x");
+test.c:1344:               hprint (v->msg_line, x+2,  v->patn[idx].adr );
+test.c:1345:               cprint (v->msg_line, x+10, ",0x");
+test.c:1346:               hprint (v->msg_line, x+13, v->patn[idx].mask);
+test.c:1347:               if (idx+1 < v->numpatn)
+test.c:1348:                       cprint (v->msg_line, x+21, ",");
+test.c:1365:	v->total_ticks++;
+test.c:1370:	while (i > v->tptr) {
+test.c:1371:		if (v->tptr >= BAR_SIZE) {
+test.c:1374:		cprint(1, COL_MID+9+v->tptr, "#");
+test.c:1375:		v->tptr++;
+test.c:1378:	pct = 100*v->total_ticks/v->pass_ticks;
+test.c:1381:	while (i > v->pptr) {
+test.c:1382:		if (v->pptr >= BAR_SIZE) {
+test.c:1385:		cprint(0, COL_MID+9+v->pptr, "#");
+test.c:1386:		v->pptr++;
+test.c:1392:	if (v->rdtsc) {
+test.c:1399:			:"g" (v->startl), "g" (v->starth),
+test.c:1401:		t = h * ((unsigned)0xffffffff / v->clks_msec) / 1000;
+test.c:1402:		t += (l / v->clks_msec) / 1000;
+test.c~:40:		p = (ulong *)roundup((ulong)v->map[0].start, 0x1ffff);
+test.c~:45:		end = v->map[segs-1].end;
+test.c~:72:	if (v->pmap[v->msegs - 1].end > (0x800000 >> 12)) {
+test.c~:81:			p = v->map[j].start;
+test.c~:84:			end = v->map[j].end;
+test.c~:136:		start = v->map[j].start;
+test.c~:137:		end = v->map[j].end;
+test.c~:180:		start = v->map[j].start;
+test.c~:181:		end = v->map[j].end;
+test.c~:257:		start = v->map[j].start;
+test.c~:258:		end = v->map[j].end;
+test.c~:298:			start = v->map[j].start;
+test.c~:299:			end = v->map[j].end;
+test.c~:364:			start = v->map[j].start;
+test.c~:365:			end = v->map[j].end;
+test.c~:448:		start = v->map[j].start;
+test.c~:449:		end = v->map[j].end;
+test.c~:516:			start = v->map[j].start;
+test.c~:517:			end = v->map[j].end;
+test.c~:623:			start = v->map[j].start;
+test.c~:624:			end = v->map[j].end;
+test.c~:735:		start = v->map[j].start;
+test.c~:736:		end = v->map[j].end;
+test.c~:779:			start = v->map[j].start;
+test.c~:780:			end = v->map[j].end;
+test.c~:838:		start = v->map[j].start;
+test.c~:839:		end = v->map[j].end;
+test.c~:916:		start = (ulong)v->map[j].start;
+test.c~:925:		end = (ulong)v->map[j].end;
+test.c~:985:		start = (ulong)v->map[j].start;
+test.c~:994:		end = (ulong)v->map[j].end;
+test.c~:1052:		start = (ulong)v->map[j].start;
+test.c~:1061:		end = (ulong)v->map[j].end;
+test.c~:1139:	if (v->printmode == PRINTMODE_ADDRESSES) {
+test.c~:1142:		if ((ulong)adr == (ulong)v->eadr && xor == v->exor) {
+test.c~:1144:			dprint(v->msg_line, 62, ++ecount, 5, 0);
+test.c~:1149:	} else if (v->printmode == PRINTMODE_PATTERNS) {
+test.c~:1168:	if (v->printmode == PRINTMODE_NONE) {
+test.c~:1184:	if (v->printmode == PRINTMODE_NONE) {
+test.c~:1204:	if (v->printmode == PRINTMODE_ADDRESSES) {
+test.c~:1206:	} else if (v->printmode == PRINTMODE_PATTERNS) {
+test.c~:1226:	++(v->ecount);
+test.c~:1227:	tseq[v->test].errors++;
+test.c~:1232:	dprint(LINE_INFO, COL_ERR, v->ecount, 6, 0);	
+test.c~:1248:	dprint(v->msg_line, 0, v->test, 3, 0);
+test.c~:1249:	dprint(v->msg_line, 4, v->pass, 5, 0);
+test.c~:1250:	hprint(v->msg_line, 11, page);
+test.c~:1251:	hprint2(v->msg_line, 19, offset, 3);
+test.c~:1252:	cprint(v->msg_line, 22, " -      . MB");
+test.c~:1253:	dprint(v->msg_line, 25, mb, 5, 0);
+test.c~:1254:	dprint(v->msg_line, 31, ((page & 0xF)*10)/16, 1, 0);
+test.c~:1268:	hprint(v->msg_line, 36, good);
+test.c~:1269:	hprint(v->msg_line, 46, bad);
+test.c~:1270:	hprint(v->msg_line, 56, xor);
+test.c~:1271:	dprint(v->msg_line, 66, ecount, 5, 0);
+test.c~:1272:	v->eadr = adr;
+test.c~:1273:	v->exor = xor;
+test.c~:1285:	if (v->test == 5) {
+test.c~:1291:	if (v->printmode == PRINTMODE_NONE) {
+test.c~:1295:	cprint(v->msg_line, 36, "Parity error detected                ");
+test.c~:1311:       if (v->numpatn == 0)
+test.c~:1316:       cprint (v->msg_line, 0, "badram=");
+test.c~:1319:       for (idx = 0; idx < v->numpatn; idx++) {
+test.c~:1325:               cprint (v->msg_line, x, "0x");
+test.c~:1326:               hprint (v->msg_line, x+2,  v->patn[idx].adr );
+test.c~:1327:               cprint (v->msg_line, x+10, ",0x");
+test.c~:1328:               hprint (v->msg_line, x+13, v->patn[idx].mask);
+test.c~:1329:               if (idx+1 < v->numpatn)
+test.c~:1330:                       cprint (v->msg_line, x+21, ",");
+test.c~:1347:	v->total_ticks++;
+test.c~:1352:	while (i > v->tptr) {
+test.c~:1353:		if (v->tptr >= BAR_SIZE) {
+test.c~:1356:		cprint(1, COL_MID+9+v->tptr, "#");
+test.c~:1357:		v->tptr++;
+test.c~:1360:	pct = 100*v->total_ticks/v->pass_ticks;
+test.c~:1363:	while (i > v->pptr) {
+test.c~:1364:		if (v->pptr >= BAR_SIZE) {
+test.c~:1367:		cprint(0, COL_MID+9+v->pptr, "#");
+test.c~:1368:		v->pptr++;
+test.c~:1374:	if (v->rdtsc) {
+test.c~:1381:			:"g" (v->startl), "g" (v->starth),
+test.c~:1383:		t = h * ((unsigned)0xffffffff / v->clks_msec) / 1000;
+test.c~:1384:		t += (l / v->clks_msec) / 1000;
