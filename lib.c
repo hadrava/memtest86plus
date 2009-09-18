@@ -313,7 +313,7 @@ void xprint(int y,int x, ulong val)
 void inter(struct eregs *trap_regs)
 {
 	int i, line;
-	char *pp;
+	unsigned char *pp;
 	ulong address = 0;
 
 	/* Get the page fault address */
@@ -330,7 +330,7 @@ void inter(struct eregs *trap_regs)
 #endif
 
 	/* clear scrolling region */
-	pp=(char *)(SCREEN_ADR+(2*80*(LINE_SCROLL-2)));
+	pp=(unsigned char *)(SCREEN_ADR+(2*80*(LINE_SCROLL-2)));
 	for(i=0; i<2*80*(24-LINE_SCROLL-2); i++, pp+=2) {
 		*pp = ' ';
 	}

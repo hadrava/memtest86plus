@@ -1,20 +1,19 @@
-Memtest86+ V1.60
+Memtest86+ V1.65
 
 Enhancements :
-	- Added Detection for Pentium D
-	- Added Detection for Athlon & Opteron Dual Core
-	- Added Detection for 90 nm Athlon 64 / Sempron
-	- Added Detection for 90 nm Opteron
-	- Added experimental detection for Intel E8500
-	- Added detection for VIA KT880
+	- Add support for Intel Conroe/Merom/Woodcrest
+  - Add support for Intel Yonah (0.65nm)
+	- Add support for Intel Presler (0.65nm)
+	- Add support for B-Step Smithfield
+	- Add support for ALi/ULi 1689 & 1695
+	- Add support for ATi RS482
 
 Bug Fixes :
-	- Correct Venice core detected as 0.13 µm
-	- Correct AMD751 not detected since 1.55
-	- Correct i855/DDR333 detection bug
-	- Correct E7xxx ECC polling (thanks to S. Wangnick)
-	- Removed E7520 ECC Support (not reliable)
-	- Added BadRAM patch	
-	- Some minor bug fixes.
+  - Solve some P4 detected as Pentium D
+  - Solve a bug with RAS detect on i955X
+  - Solve a bug with K5 L1 detection size
+  - Cosmetic : Mhz changed to MHz
+	- Rewrite some code to avoid warning with gcc 4
+	- Solve Fedora bugzilla Bug #162373
 
 ---------------------------------

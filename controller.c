@@ -3,7 +3,7 @@
  * Released under version 2 of the Gnu Public License.
  * By Chris Brady, cbrady@sgi.com
  * ----------------------------------------------------
- * MemTest86+ V1.55 Specific code (GPL V2.0)
+ * MemTest86+ V1.65 Specific code (GPL V2.0)
  * By Samuel DEMEULEMEESTER, sdemeule@memtest.org
  * http://www.x86-secret.com - http://www.memtest.org
  */
@@ -627,9 +627,9 @@ static void setup_i925(void)
 
 	// Activate MMR I/O
 	ulong dev0, drc;
-	long tolm;
+	unsigned long tolm;
 	long *ptr;
-
+	
 	pci_conf_read( 0, 0, 0, 0x54, 4, &dev0);
 	dev0 = dev0 | 0x10000000;
 	pci_conf_write( 0, 0, 0, 0x54, 4, dev0);
@@ -1493,7 +1493,7 @@ static void poll_timings_i925(void) {
 
 	// RAS Active to precharge (tRAS)
 	// If Lakeport, than change tRAS computation (Thanks to CDH, again)
-	if (idetect == 0x2770)
+	if (idetect == 0x2770 || idetect == 0x2774)
 		temp = ((drt >> 19)& 0x1F);
 	else
 		temp = ((drt >> 20)& 0x0F);
@@ -1826,6 +1826,8 @@ static struct pci_memory_controller controllers[] = {
 	{ 0x10b9, 0x1531, "Aladdin 4", 0, poll_fsb_nothing, poll_timings_nothing, setup_nothing, poll_nothing },
 	{ 0x10b9, 0x1541, "Aladdin 5", 0, poll_fsb_nothing, poll_timings_nothing, setup_nothing, poll_nothing },
 	{ 0x10b9, 0x1687, "ALi M1687", 0, poll_fsb_amd64, poll_timings_amd64, setup_amd64, poll_amd64 },
+	{ 0x10b9, 0x1689, "ALi M1689", 0, poll_fsb_amd64, poll_timings_amd64, setup_amd64, poll_amd64 },
+	{ 0x10b9, 0x1695, "ALi M1695", 0, poll_fsb_amd64, poll_timings_amd64, setup_amd64, poll_amd64 },
 
 	/* ATi */
 	{ 0x1002, 0x5830, "ATi Radeon 9100 IGP", 0, poll_fsb_p4, poll_timings_nothing, setup_nothing, poll_nothing },
@@ -1834,6 +1836,7 @@ static struct pci_memory_controller controllers[] = {
 	{ 0x1002, 0x5833, "ATi Radeon 9100 IGP", 0, poll_fsb_p4, poll_timings_nothing, setup_nothing, poll_nothing },
 	{ 0x1002, 0x5954, "ATi Radeon xPress 200", 0, poll_fsb_p4, poll_timings_nothing, setup_nothing, poll_nothing },
 	{ 0x1002, 0x5A41, "ATi Radeon xPress 200", 0, poll_fsb_p4, poll_timings_nothing, setup_nothing, poll_nothing },
+	{ 0x1002, 0x5950, "ATi RS482", 0, poll_fsb_amd64, poll_timings_amd64, setup_amd64, poll_amd64 },
 
 	/* nVidia */
 	{ 0x10de, 0x01A4, "nVidia nForce", 0, poll_fsb_nothing, poll_timings_nothing, setup_nothing, poll_nothing },

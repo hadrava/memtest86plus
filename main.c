@@ -3,7 +3,7 @@
  * Released under version 2 of the Gnu Public License.
  * By Chris Brady
  * ----------------------------------------------------
- * MemTest86+ V1.50 Specific code (GPL V2.0)
+ * MemTest86+ V1.65 Specific code (GPL V2.0)
  * By Samuel DEMEULEMEESTER, sdemeule@memtest.org
  * http://www.x86-secret.com - http://www.memtest.org
  */
@@ -421,7 +421,7 @@ void find_ticks(void)
 	}
 	compute_segments(window);
 	window = 0;
-	for (v->pass_ticks=0, i=0; i<DEFTESTS != NULL; i++) {
+	for (v->pass_ticks=0, i=0; ((i<DEFTESTS) && (DEFTESTS != NULL)); i++) {
 
 		/* Test to see if this test is selected for execution */
 		if (v->testsel >= 0) {

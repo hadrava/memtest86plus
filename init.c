@@ -3,7 +3,7 @@
  * Released under version 2 of the Gnu Public License.
  * By Chris Brady, cbrady@sgi.com
  * ----------------------------------------------------
- * MemTest86+ V1.60 Specific code (GPL V2.0)
+ * MemTest86+ V1.65 Specific code (GPL V2.0)
  * By Samuel DEMEULEMEESTER, sdemeule@memtest.org
  * http://www.x86-secret.com - http://www.memtest.org
  */
@@ -52,7 +52,7 @@ static void display_init(void)
 	for(i=0, pp=(char *)(SCREEN_ADR+1); i<TITLE_WIDTH; i++, pp+=2) {
 		*pp = 0x20;
 	}
-	cprint(0, 0, "      Memtest86  v1.60      ");
+	cprint(0, 0, "      Memtest86  v1.65      ");
 
 	for(i=0, pp=(char *)(SCREEN_ADR+1); i<2; i++, pp+=30) {
 		*pp = 0xA4;
@@ -376,6 +376,7 @@ void cpu_type(void)
 			case 2:
 			case 3:
 				cprint(LINE_CPU, 0, "AMD K5");
+				l1_cache = 8;
 				off = 6;
 				break;
 			case 6:
@@ -704,6 +705,14 @@ void cpu_type(void)
 					}
 					off = 16;
 					break;
+				case 14:
+					cprint(LINE_CPU, 0, "Intel Yonah (65nm)");
+					off = 16;
+					break;				
+				case 15:
+					cprint(LINE_CPU, 0, "Intel Conroe (65nm)");
+					off = 17;
+					break;
 				}
 				break;
 			case 15:
@@ -740,6 +749,7 @@ void cpu_type(void)
 					}
 					break;
 				case 3:
+				case 4:
 					if (l2_cache == 256) {
 						cprint(LINE_CPU, 0, "Celeron (0.09)");
 						off = 14;
@@ -749,13 +759,16 @@ void cpu_type(void)
 					} else if (cpu_id.pwrcap == 0x0C) {
 						cprint(LINE_CPU, 0, "Xeon MP (0.09)");
 						off = 14;
+					} else if ((cpu_id.step == 0x4 || cpu_id.step == 0x7) && cpu_id.model == 0x4) {
+						cprint(LINE_CPU, 0, "Pentium D (0.09)");
+						off = 16;
 					} else {
 						cprint(LINE_CPU, 0, "Pentium 4 (0.09)");
 						off = 16;
 					}
 					break;
-				case 4:
-					cprint(LINE_CPU, 0, "Pentium D (0.09)");
+				case 6:
+					cprint(LINE_CPU, 0, "Pentium D (65nm)");
 					off = 16;		
 					break;
 				default:
@@ -860,7 +873,7 @@ void cpu_type(void)
 			dprint(LINE_CPU, off+5, (speed/100)%10, 1, 0);
 		} else {
 			speed += 500; /* for rounding */
-			cprint(LINE_CPU, off, "      Mhz");
+			cprint(LINE_CPU, off, "      MHz");
 			dprint(LINE_CPU, off, speed/1000, 5, 0);
 		}
 		extclock = speed;
