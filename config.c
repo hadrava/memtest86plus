@@ -13,7 +13,7 @@
 #include "controller.h"
 #define ITER 20
 
-extern int bail;
+extern int bail, beepmode;
 extern struct tseq tseq[];
 /* extern struct vars *v; */
 extern short e820_nr;
@@ -40,7 +40,7 @@ void get_config()
 		cprint(POP_Y+9,  POP_X+6, "(7) ECC Mode"); 
 		cprint(POP_Y+10, POP_X+6, "(8) Restart Test");
 		cprint(POP_Y+11, POP_X+6, "(9) Reprint Screen");
-		cprint(POP_Y+12,POP_X+6,"(0) Exit");
+		cprint(POP_Y+12, POP_X+6, "(0) Exit");
 
 		/* Wait for key release */
 		/* Fooey! This nuts'es up the serial input. */
@@ -335,8 +335,10 @@ void get_config()
 			cprint(POP_Y+3, POP_X+6, "(1) Individual Errors");
 			cprint(POP_Y+4, POP_X+6, "(2) BadRAM Patterns");
 			cprint(POP_Y+5, POP_X+6, "(3) Error Counts Only");
-			cprint(POP_Y+6, POP_X+6, "(0) Cancel");
+			cprint(POP_Y+6, POP_X+6, "(4) Beep on Error");
+			cprint(POP_Y+7, POP_X+6, "(0) Cancel");
 			cprint(POP_Y+3+v->printmode, POP_X+5, ">");
+			if (beepmode) { cprint(POP_Y+6, POP_X+5, ">"); }
 			wait_keyup();
 			while (!sflag) {
 				switch(get_key()) {
@@ -355,6 +357,11 @@ void get_config()
 				case 4:
 					/* Error Counts Only */
 					v->printmode=PRINTMODE_NONE;
+					sflag++;
+					break;
+				case 5:
+					/* Set Beep On Error mode */
+					beepmode = !beepmode;
 					sflag++;
 					break;
 				case 11:

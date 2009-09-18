@@ -129,7 +129,8 @@ void get_printmode(void);
 void addr_tst1(void);
 void addr_tst2(void);
 void bit_fade(void);
-void sleep(int sec);
+void sleep(int sec, int sms);
+void beep(unsigned int frequency);
 void block_move(int iter);
 void find_ticks(void);
 void print_err(ulong *adr, ulong good, ulong bad, ulong xor);
@@ -262,6 +263,7 @@ struct vars {
 	int total_ticks;
 	int pptr;
 	int tptr;
+	int beepmode;
 	struct pmap pmap[MAX_MEM_SEGMENTS];
 	struct mmap map[MAX_MEM_SEGMENTS];
 	ulong plim_lower;

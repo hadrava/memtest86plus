@@ -3,7 +3,7 @@
  * Released under version 2 of the Gnu Public License.
  * By Chris Brady, cbrady@sgi.com
  * ----------------------------------------------------
- * MemTest86+ V1.26 Specific code (GPL V2.0)
+ * MemTest86+ V1.27 Specific code (GPL V2.0)
  * By Samuel DEMEULEMEESTER, sdemeule@memtest.org
  * http://www.x86-secret.com - http://www.memtest.org
  */
@@ -17,6 +17,7 @@
 
 extern short memsz_mode;
 extern short firmware;
+int beepmode;
 
 struct cpu_ident cpu_id;
 ulong st_low, st_high;
@@ -51,7 +52,7 @@ static void display_init(void)
  	for(i=0, pp=(char *)(SCREEN_ADR+1); i<TITLE_WIDTH; i++, pp+=2) {
   	*pp = 0x20;
  	}
- 	cprint(0, 0, "      Memtest86  v1.26      ");
+ 	cprint(0, 0, "      Memtest86  v1.27      ");
 
  	for(i=0, pp=(char *)(SCREEN_ADR+1); i<2; i++, pp+=30) {
 	*pp = 0xA4;
@@ -96,6 +97,9 @@ void init(void)
 
 	/* setup pci */
 	pci_init();
+	
+	/* setup beep mode */
+	beepmode = BEEP_MODE;
 
 	v->test = 0;
 	v->testsel = -1;
@@ -448,24 +452,35 @@ void cpu_type(void)
 			l1_cache += cpu_id.cache_info[7];
 			break;
 		case 15:
+			l1_cache = cpu_id.cache_info[3];
+			l1_cache += cpu_id.cache_info[7];
+      l2_cache = (cpu_id.cache_info[11] << 8);
+      l2_cache += cpu_id.cache_info[10];
 			switch(cpu_id.model) {
 			default:
 				cprint(LINE_CPU, 0, "AMD Athlon 64");
-                                off = 13;
-                                break;
+             off = 13;
+             break;
 			case 5:
-				cprint(LINE_CPU, 0, "AMD Opteron");
-                                off = 11;
-                                break;
-                        case 12:
-				cprint(LINE_CPU, 0, "AMD Sempron");
-                                off = 11;                        	
-                        	break;
+				cprint(LINE_CPU, 0, "AMD Opteron (0.13)");
+             off = 18;
+             break;
+      case  4:
+      case 12:			
+			if (l2_cache == 256) {
+				cprint(LINE_CPU, 0, "AMD Sempron (0.13)");
+             off = 18;                        	
+      } else {
+				cprint(LINE_CPU, 0, "Athlon 64 (0.13)");
+             off = 16; 
+      }  	
+    				 break;
+   		case 15:
+				cprint(LINE_CPU, 0, "Athlon 64 (0.09)");
+             off = 16;
+             break;          
+             
 			}
-			l1_cache = cpu_id.cache_info[3];
-			l1_cache += cpu_id.cache_info[7];
-                        l2_cache = (cpu_id.cache_info[11] << 8);
-                        l2_cache += cpu_id.cache_info[10];
 			break;
 		}
 		break;

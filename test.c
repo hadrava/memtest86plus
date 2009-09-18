@@ -5,8 +5,10 @@
  */
 #include "test.h"
 #include "config.h"
+#include <sys/io.h>
 
-extern int segs, bail;
+
+extern int segs, bail, beepmode;
 extern volatile ulong *p;
 extern ulong p1, p2;
 extern int test_ticks, nticks;
@@ -1145,7 +1147,7 @@ void bit_fade()
 			BAILR
 		}
 		/* Snooze for 90 minutes */
-		sleep (5400);
+		sleep (5400, 0);
 
 		/* Make sure that nothing changed while sleeping */
 		for (j=0; j<segs; j++) {
@@ -1282,6 +1284,12 @@ void print_hdr(void)
 static void update_err_counts(void)
 {
 	++(v->ecount);
+	
+	if (beepmode){
+	beep(600);
+	beep(1000);
+	}
+	
 	tseq[v->test].errors++;
 }
 
@@ -1322,6 +1330,7 @@ void print_err( ulong *adr, ulong good, ulong bad, ulong xor)
 	page = page_of(adr);
 	offset = ((unsigned long)adr) & 0xFFF;
 	common_err(page, offset);
+	
 
 	ecount = 1;
 	hprint(v->msg_line, 36, good);
@@ -1478,7 +1487,9 @@ void do_tick(void)
 	poll_errors();
 }
 
-void sleep(int n)
+/* Sleep function */
+
+void sleep(int n, int sms)
 {
 	int i, ip;
 	ulong sh, sl, l, h, t;
@@ -1498,23 +1509,31 @@ void sleep(int n)
 			:"=a" (l), "=d" (h)
 			:"g" (sl), "g" (sh),
 			"0" (l), "1" (h));
+		
+		if (sms != 0) {
+		t = h * ((unsigned)0xffffffff / v->clks_msec);
+		t += (l / v->clks_msec);
+		} else {
 		t = h * ((unsigned)0xffffffff / v->clks_msec) / 1000;
 		t += (l / v->clks_msec) / 1000;
-
+		}
+	
 		/* Is the time up? */
 		if (t >= n) {
 			break;
 		}
 
 		/* Display the elapsed time on the screen */
+		if (sms == 0) {
+		
 		i = t % 60;
 		dprint(LINE_TIME, COL_TIME+9, i%10, 1, 0);
 		dprint(LINE_TIME, COL_TIME+8, i/10, 1, 0);
 
-		if (i != ip) {
-		    check_input();
-		    ip = i;
-		}
+			if (i != ip) {
+		    		check_input();
+		    		ip = i;
+			}
 
 		t /= 60;
 		i = t % 60;
@@ -1523,5 +1542,29 @@ void sleep(int n)
 		t /= 60;
 		dprint(LINE_TIME, COL_TIME, t, 4, 0);
 		BAILR
+		}
 	}
+}
+
+/* Beep function */
+
+void beep(unsigned int frequency)
+{
+	unsigned int count = 1193180 / frequency;
+	
+	// Switch on the speaker
+	outb_p(inb_p(0x61)|3, 0x61);
+	
+	// Set command for counter 2, 2 byte write
+	outb_p(0xB6, 0x43);
+	
+	// Select desired Hz
+	outb_p(count & 0xff, 0x42);
+	outb((count >> 8) & 0xff, 0x42);
+	
+	// Block for 100 microseconds
+	sleep(100, 1);
+	
+	// Switch off the speaker
+	outb(inb_p(0x61)&0xFC, 0x61);
 }

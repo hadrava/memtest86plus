@@ -12,8 +12,8 @@
 ; The good thing is that you get a single file which can be
 ; compressed, for example with http://upx.sf.net/ (UPX).
 
-%define fullsize (81860 + buffer - start)
-	; 81860 is the size of memtest86+ V1.26, adjust as needed!
+%define fullsize (86056 + buffer - exeh)
+	; 86056 is the size of memtest86+ V1.27, adjust as needed!
 
 %define stacksize 2048
 %define stackpara ((stacksize + 15) / 16)

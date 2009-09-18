@@ -3,7 +3,7 @@
  * Released under version 2 of the Gnu Public License.
  * By Chris Brady, cbrady@sgi.com
  * ----------------------------------------------------
- * MemTest86+ V1.26 Specific code (GPL V2.0)
+ * MemTest86+ V1.27 Specific code (GPL V2.0)
  * By Samuel DEMEULEMEESTER, sdemeule@memtest.org
  * http://www.x86-secret.com - http://www.memtest.org
  */
@@ -563,8 +563,7 @@ static void setup_i925(void)
 {
 
 	// Activate MMR I/O
-	ulong dev0;//, drt;
-	//long *ptr;
+	ulong dev0;
 	
 	// Current stepping of i925X does not support ECC
 	ctrl.cap = ECC_CORRECT;
@@ -573,7 +572,6 @@ static void setup_i925(void)
 	pci_conf_read( 0, 0, 0, 0x54, 4, &dev0);	
 	dev0 = dev0 | 0x10000000;
 	pci_conf_write( 0, 0, 0, 0x54, 4, dev0);	
-
 	
 }
 
@@ -607,9 +605,7 @@ static void poll_i875(void)
 
 		/* Clear the error status */
 		pci_conf_write(ctrl.bus, ctrl.dev, ctrl.fn, 0xC8, 2,  0x81);
-
 	}
-	
 }
 
 static void setup_i845(void)
@@ -782,6 +778,34 @@ static void poll_i860(void)
 
 static float athloncoef[] = {11, 11.5, 12.0, 12.5, 5.0, 5.5, 6.0, 6.5, 7.0, 7.5, 8.0, 8.5, 9.0, 9.5, 10.0, 10.5};
 static float athloncoef2[] = {12, 19.0, 12.0, 20.0, 13.0, 13.5, 14.0, 21.0, 15.0, 22, 16.0, 16.5, 17.0, 18.0, 23.0, 24.0};
+static int p4model1ratios[] = {16, 17, 18, 19, 20, 21, 22, 23, 8, 9, 10, 11, 12, 13, 14, 15};
+
+static int getP4PMmultiplier(void)
+{
+	unsigned int msr_lo, msr_hi;
+	int coef;
+	/* Find multiplier (by MSR) */
+	
+	if (cpu_id.type == 6) {	
+		rdmsr(0x2A, msr_lo, msr_hi);
+		coef = (msr_lo >> 22) & 0x1F;
+	} 
+	else 
+	{
+		if (cpu_id.model < 2) 
+		{
+	  	rdmsr(0x2A, msr_lo, msr_hi);
+	  	coef = (msr_lo >> 8) & 0xF;
+	  	coef = p4model1ratios[coef];
+		} 
+		else 
+		{
+	  	rdmsr(0x2C, msr_lo, msr_hi);
+	  	coef = (msr_lo >> 24) & 0x1F;
+		}
+	}
+	return coef;
+}
 
 static void poll_fsb_amd64(void) {
 
@@ -845,14 +869,10 @@ static void poll_fsb_amd64(void) {
 static void poll_fsb_i925(void) {
 
 	double dramclock, dramratio, fsb;
-	unsigned int msr_lo, msr_hi;
 	unsigned long mchcfg, mchcfg2, dev0;
-	int coef;
+	int coef = getP4PMmultiplier();
 	long *ptr;
 	
-	/* Find multiplier (by MSR) */
-	rdmsr(0x2C, msr_lo, msr_hi);
-	coef = (msr_lo >> 24) & 0x1F;
 	
 	/* Find dramratio */
 	pci_conf_read( 0, 0, 0, 0x44, 4, &dev0);
@@ -862,14 +882,21 @@ static void poll_fsb_i925(void) {
 
 	mchcfg2 = (mchcfg >> 4)&3;
 	
-	if (mchcfg2  == 2) { dramratio = 1; } 
-	else if (mchcfg2 == 1) { dramratio = 0.66667; }
-	else if (mchcfg2 == 3) { 
-		// If mchcfg[0] = 1 => FSB533 / = 0 => FSB800
-		if ((mchcfg & 1) == 0) { dramratio = 1.33334; }
-		else { dramratio = 1.5; }
+	if ((mchcfg >> 2)&1) {
+		if (mchcfg2 == 2) { dramratio = 0.75; } else { dramratio = 1; }
+	} else {
+		switch (mchcfg2) {
+		case 1:
+			dramratio = 0.66667;
+			break;
+		case 2:
+			dramratio = 1;
+			break;
+		case 3:
+			if ((mchcfg & 1) == 0) { dramratio = 1.33334; }
+			else { dramratio = 1.5; }
+		}
 	}
-
 	
 	// Compute RAM Frequency 
 	fsb = ((extclock /1000) / coef);
@@ -891,13 +918,8 @@ static void poll_fsb_i925(void) {
 static void poll_fsb_i875(void) {
 
 	double dramclock, dramratio, fsb;
-	unsigned int msr_lo, msr_hi;
 	unsigned long mchcfg, smfs;
-	int coef;
-	
-	/* Find multiplier (by MSR) */
-	rdmsr(0x2C, msr_lo, msr_hi);
-	coef = (msr_lo >> 24) & 0x1F;
+	int coef = getP4PMmultiplier();
 	
 	/* Find dramratio */
 	pci_conf_read(0, 0, 0, 0xC6, 2, &mchcfg);
@@ -939,17 +961,7 @@ static void poll_fsb_i875(void) {
 static void poll_fsb_p4(void) {
 
 	ulong fsb, idetect;
-	unsigned int msr_lo, msr_hi;
-	int coef;
-
-	/* Find multiplier (by MSR) - Added a check for P-M for ATi RSxxx chipsets */
-	if (cpu_id.type == 6) {	
-	rdmsr(0x2A, msr_lo, msr_hi);
-	coef = (msr_lo >> 22) & 0x1F;
-	} else {
-	rdmsr(0x2C, msr_lo, msr_hi);
-	coef = (msr_lo >> 24) & 0x1F;	
-	}
+	int coef = getP4PMmultiplier();
 
 	fsb = ((extclock /1000) / coef);
 
@@ -966,9 +978,7 @@ static void poll_fsb_p4(void) {
 	if (idetect == 0x2540 || idetect == 0x254C) {
 	print_fsb_info(fsb, "RAM : ");
 	}
-
 }
-
 
 static void poll_fsb_i855(void) {
 
@@ -1561,6 +1571,7 @@ static struct pci_memory_controller controllers[] = {
 	{ 0x10de, 0x01E0, "nVidia nForce2 SPP", 0, poll_fsb_nf2, poll_timings_nf2, setup_nothing, poll_nothing },
 	{ 0x10de, 0x00D1, "nVidia nForce3", 0, poll_fsb_amd64, poll_timings_amd64, setup_amd64, poll_amd64 },
 	{ 0x10de, 0x00E1, "nForce3 250", 0, poll_fsb_amd64, poll_timings_amd64, setup_amd64, poll_amd64 },
+	{ 0x10de, 0x005E, "nVidia nForce4", 0, poll_fsb_amd64, poll_timings_amd64, setup_amd64, poll_amd64 },
 	
 	/* VIA */
 	{ 0x1106, 0x0305, "VIA KT133/KT133A",    0, poll_fsb_nothing, poll_timings_nothing, setup_nothing, poll_nothing },
@@ -1618,7 +1629,7 @@ static struct pci_memory_controller controllers[] = {
 	{ 0x8086, 0x3580, "Intel ",          0, poll_fsb_i855, poll_timings_i852, setup_nothing, poll_nothing },
 	{ 0x8086, 0x3340, "Intel i855PM",    0, poll_fsb_i855, poll_timings_i855, setup_nothing, poll_nothing },
 	{ 0x8086, 0x2580, "Intel i915P/G",   0, poll_fsb_i925, poll_timings_i925, setup_i925, poll_nothing },
-	{ 0x8086, 0x2584, "Intel i925X",     0, poll_fsb_i925, poll_timings_i925, setup_i925, poll_nothing },
+	{ 0x8086, 0x2584, "Intel i925X/XE",  0, poll_fsb_i925, poll_timings_i925, setup_i925, poll_nothing },
 };
 
 static void print_memory_controller(void)
