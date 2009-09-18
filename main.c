@@ -215,7 +215,12 @@ void do_test(void)
 			}
 			break;
 		case 1: /* Extended tests */
-			if (v->test <= DEFTESTS) {
+			if ((v->test <= DEFTESTS) || (v->test > DEFTESTS2)) {
+				goto skip_test;
+			}
+			break;
+		case 2: /* All tests */
+			if (v->test > DEFTESTS2) {
 				goto skip_test;
 			}
 			break;

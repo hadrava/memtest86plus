@@ -37,6 +37,7 @@ struct mem_info_t {
 typedef unsigned long ulong;
 #define SPINSZ		0x800000
 #define DEFTESTS	7
+#define DEFTESTS2	11
 #define MOD_SZ		20
 #define BAILOUT		if (bail) goto skip_test;
 #define BAILR		if (bail) return;
@@ -235,6 +236,7 @@ struct cpu_ident {
 	long capability;
 	char vend_id[12];
 	unsigned char cache_info[16];
+	long pwrcap;
 };
 #define X86_FEATURE_PAE		(0*32+ 6) /* Physical Address Extensions */
 

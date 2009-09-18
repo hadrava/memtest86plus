@@ -1,0 +1,18 @@
+- Added advanced support for Intel Grantsdale (i915)
+- Added advanced support for Intel Alderwood (i925)
+- Added advanced support for VIA K8T800 Pro
+- Added support for Prescott core E0
+- Added support for Cyrix III CPU
+- Added support for VIA C3 Samuel2/Ezra/Nehemiah CPU
+- Added detection for VIA CLE266 and PLE133 Chipset
+- Added support for .5 FID for AMD K8
+- Complete rewrite of the Cool 'n Quiet core
+- Fixed a bug with K8 > 2.2 GHz
+- Fixed a bug with test #12 (no kb input check)
+- Removed the KTxxx (K7) advanced detection completely
+- Removed Bit Fade Test from the test batch
+	(Can still be run standalone)
+- Fixed a bug with VIA VT82C693A/694X detection
+
+
+

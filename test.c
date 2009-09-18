@@ -1480,9 +1480,10 @@ void do_tick(void)
 
 void sleep(int n)
 {
-	int i;
+	int i, ip;
 	ulong sh, sl, l, h, t;
-
+	
+	ip = 0;
 	/* save the starting time */
 	asm __volatile__(
 		"rdtsc":"=a" (sl),"=d" (sh));
@@ -1509,6 +1510,12 @@ void sleep(int n)
 		i = t % 60;
 		dprint(LINE_TIME, COL_TIME+9, i%10, 1, 0);
 		dprint(LINE_TIME, COL_TIME+8, i/10, 1, 0);
+
+		if (i != ip) {
+		    check_input();
+		    ip = i;
+		}
+
 		t /= 60;
 		i = t % 60;
 		dprint(LINE_TIME, COL_TIME+6, i % 10, 1, 0);

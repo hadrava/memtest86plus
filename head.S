@@ -8,6 +8,7 @@
  *
  *  1-Jan-96 Modified by Chris Brady for use as a boot/loader for MemTest-86.
  *  Setup the memory management for flat non-paged linear addressing.
+ *  17 May 2004 : Added X86_PWRCAP for AMD64 (Memtest86+ - Samuel D.)
  */
 
 .text
@@ -27,6 +28,7 @@
 #define X86_CAPABILITY	8
 #define X86_VENDOR_ID	12
 #define X86_CACHE	24
+#define X86_PWRCAP	40
 
 	.code32
 	.globl startup_32
@@ -365,6 +367,9 @@ not_intel:
 	movl	$0x80000006,%eax	# Use the CPUID instruction to get cache info
 	cpuid
 	movl	%ecx,X86_CACHE+8(%esi)
+	movl	$0x80000007,%eax	# Use the CPUID instruction to get AMD Powercap
+	cpuid
+	movl	%edx,X86_PWRCAP(%esi)
 
 not_amd:
 	movl	X86_VENDOR_ID+8(%esi), %eax

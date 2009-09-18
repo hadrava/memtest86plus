@@ -51,7 +51,7 @@ static void display_init(void)
  	for(i=0, pp=(char *)(SCREEN_ADR+1); i<TITLE_WIDTH; i++, pp+=2) {
   	*pp = 0x20;
  	}
- 	cprint(0, 0, "      Memtest86  v1.15      ");
+ 	cprint(0, 0, "      Memtest86  v1.20      ");
 
  	for(i=0, pp=(char *)(SCREEN_ADR+1); i<2; i++, pp+=30) {
 	*pp = 0xA4;
@@ -672,6 +672,7 @@ void cpu_type(void)
                         	}
                                 break;
 			case 3:
+			case 4:
                                 if (l2_cache == 256) {
                                 cprint(LINE_CPU, 0, "Celeron (0.09)");
                                 off = 14;	
@@ -686,19 +687,49 @@ void cpu_type(void)
 		}
 		break;
 
-	/* Cyrix Processors with CPUID */
+	/* VIA/Cyrix Processors with CPUID */
 	case 'C':
-		switch(cpu_id.model) {
-		case 0:
-			cprint(LINE_CPU, 0, "Cyrix 6x86MX/MII");
-			off = 16;
-			break;
-		case 4:
-			cprint(LINE_CPU, 0, "Cyrix GXm");
-			off = 9;
-			break;
+		switch(cpu_id.type) {
+		case 5:
+			switch(cpu_id.model) {
+			case 0:
+				cprint(LINE_CPU, 0, "Cyrix 6x86MX/MII");
+				off = 16;
+				break;
+			case 4:
+				cprint(LINE_CPU, 0, "Cyrix GXm");
+				off = 9;
+				break;
 		}
 		return;
+		break;
+		case 6: // VIA C3
+			switch(cpu_id.model) {
+			case 6:
+				cprint(LINE_CPU, 0, "Cyrix III");
+				off = 9;
+				break;
+			case 7:
+				if (cpu_id.step < 8) {
+				cprint(LINE_CPU, 0, "VIA C3 Samuel2");	off = 14;
+				} else {
+				cprint(LINE_CPU, 0, "VIA C3 Ezra-T");  off = 13;				
+				}	
+				break;
+			case 8:
+				cprint(LINE_CPU, 0, "VIA C3 Ezra-T");
+				off = 13;
+				break;
+			case 9:
+				cprint(LINE_CPU, 0, "VIA C3 Nehemiah");
+				off = 15;
+				break;
+			}
+			// L1 = L2 = 64 KB from Cyrix III to Nehemiah
+			l1_cache = 64;
+			l2_cache = 64;
+			break;
+		}
 		break;
 
 	/* Unknown processor */
@@ -778,7 +809,7 @@ void cpu_type(void)
 		dprint(LINE_CPU+3, 15, speed, 6, 0);
 	}
 
-	/* Record the sarting time */
+	/* Record the starting time */
         asm __volatile__ ("rdtsc":"=a" (v->startl),"=d" (v->starth));
         v->snapl = v->startl;
         v->snaph = v->starth;

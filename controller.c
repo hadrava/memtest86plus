@@ -503,6 +503,25 @@ static void setup_i875(void)
 	
 }
 
+static void setup_i925(void)
+{
+
+	// Activate MMR I/O
+	ulong dev0;//, drt;
+	//long *ptr;
+	
+	// Current stepping of i925X does not support ECC
+	ctrl.cap = ECC_CORRECT;
+	ctrl.mode = ECC_NONE;
+	
+	pci_conf_read( 0, 0, 0, 0x54, 4, &dev0);	
+	dev0 = dev0 | 0x10000000;
+	pci_conf_write( 0, 0, 0, 0x54, 4, dev0);	
+
+	
+}
+
+
 static void poll_i875(void)
 {
 	unsigned long errsts;
@@ -704,7 +723,7 @@ static void poll_i860(void)
 /* --------------------------------------------------------------------- */
 
 
-static int amd64cm[] = {0x0, 0x0, 0x0, 0x0, 0x0, 0x2, 0x4, 0x6, 0xB, 0xA, 0xC, 0xE, 0x10, 0x12, 0x14};
+static int amd64cm[] = {0x0, 0x0, 0x0, 0x0, 0x0, 0x2, 0x4, 0x6, 0x8, 0xA, 0xC, 0xE, 0x10, 0x12, 0x14, 0x16};
 static float athloncoef[] = {11, 11.5, 12.0, 12.5, 5.0, 5.5, 6.0, 6.5, 7.0, 7.5, 8.0, 8.5, 9.0, 9.5, 10.0, 10.5};
 static float athloncoef2[] = {12, 19.0, 12.0, 20.0, 13.0, 13.5, 14.0, 21.0, 15.0, 22, 16.0, 16.5, 17.0, 18.0, 23.0, 24.0};
 
@@ -712,25 +731,35 @@ static void poll_fsb_amd64(void) {
 
 	unsigned int mcgsrl;
 	unsigned int mcgsth;
-	unsigned long temp, temp2;
+	unsigned long fid, temp, temp2;
 	unsigned long dramchr;
 	double clockratio;
 	double dramclock;
 	int i;
-	int coef;
+	float coef;
 	coef = 10;
 	
 	/* First, got the FID by MSR */
+	/* First look if Cool 'n Quiet is supported to choose the right msr */
+	if (((cpu_id.pwrcap >> 1) & 1) == 1) {
+	rdmsr(0xc0010042, mcgsrl, mcgsth);
+	fid = (mcgsrl& 0x1F);
+	} else {
 	rdmsr(0xc0010015, mcgsrl, mcgsth);
-	temp = ((mcgsrl >> 24)& 0x0F);
+	fid = ((mcgsrl >> 24)& 0x1F);
+	}
 	
-		
+	temp = fid & 0x1E;
+	
 	for(i = 4; i < sizeof(amd64cm)/sizeof(amd64cm[0]); i++) {
 			if (amd64cm[i] == temp) {
 				coef = i;
 				break;
 				}
 			}
+	
+	/* Support for .5 coef */
+	if ((fid & 1) == 1) { coef = coef + 0.5; }
 	
 	/* Next, we need the clock ratio */
 	pci_conf_read(0, 24, 2, 0x94, 4, &dramchr);
@@ -760,6 +789,48 @@ static void poll_fsb_amd64(void) {
 	
 	/* ...and print */
 	print_fsb_info(dramclock, "RAM : ");
+	
+}
+
+static void poll_fsb_i925(void) {
+
+	double dramclock, dramratio, fsb;
+	unsigned int msr_lo, msr_hi;
+	unsigned long mchcfg, dev0;
+	int coef;
+	long *ptr;
+	
+	/* Find multiplier (by MSR) */
+	rdmsr(0x2C, msr_lo, msr_hi);
+	coef = (msr_lo >> 24) & 0x1F;
+	fsb = ((extclock /1000) / coef);
+	
+	/* Find dramratio */
+	pci_conf_read( 0, 0, 0, 0x44, 4, &dev0);
+	ptr=(long*)(dev0+0x112);
+	mchcfg = *ptr & 0xFFFF;
+	dramratio = 1;
+	mchcfg = (mchcfg >> 12)&3;
+	
+	if (mchcfg == 2) { dramratio = 1; } 
+	else if (mchcfg == 3) { dramratio = 1.33334; }
+	else if (mchcfg == 1) { dramratio = 0.66667; }
+
+	// Compute RAM Frequency 
+	fsb = ((extclock /1000) / coef);
+	dramclock = fsb * dramratio;
+
+	// Print DRAM Freq 
+	print_fsb_info(dramclock, "RAM : "); 
+	
+	/* Print FSB (only if ECC is not enabled) */
+		
+	cprint(LINE_CPU+4, col +1, "- FSB : ");
+	col += 9;
+	dprint(LINE_CPU+4, col, fsb, 3,0);
+	col += 3;
+	cprint(LINE_CPU+4, col +1, "Mhz");
+	col += 4;
 	
 }
 
@@ -974,6 +1045,88 @@ static void poll_fsb_nf2(void) {
 
 /* ------------------ Here the code for Timings detection ------------------ */
 /* ------------------------------------------------------------------------- */
+static void poll_timings_i925(void) {
+
+	ulong dev0, mch, drt, drc, dcc, temp;
+	long *ptr;
+	
+	
+	//Read Offset 9C
+	pci_conf_read( 0, 0, 0, 0x9C, 1, &mch);
+	
+	//Now, read MMR Base Address
+	pci_conf_read( 0, 0, 0, 0x44, 4, &dev0);
+	
+	//Set pointer for DRT
+	ptr=(long*)(dev0+0x114);
+	drt = *ptr & 0xFFFFFFFF;
+
+	//Set pointer for DRC
+	ptr=(long*)(dev0+0x120);
+	drc = *ptr & 0xFFFFFFFF;
+
+	//Set pointer for DCC
+	ptr=(long*)(dev0+0x200);
+	dcc = *ptr & 0xFFFFFFFF;
+
+	//Determine DDR or DDR-II
+	
+	if ((drc & 3) == 2) {
+	cprint(LINE_CPU+4, col +1, "- Type : DDR-II");
+	} else {
+	cprint(LINE_CPU+4, col +1, "- Type : DDR-I");	
+	}
+
+	// Now, detect timings
+	cprint(LINE_CPU+5, col2 +1, "/ CAS : ");
+	col2 += 9;
+	
+	// CAS Latency (tCAS)
+	temp = ((drt >> 8)& 0x3);
+
+	if ((drc & 3) == 2){
+		// Timings DDR-II
+		if (temp == 0x0) { cprint(LINE_CPU+5, col2, "5-"); }
+		else if (temp == 0x1) { cprint(LINE_CPU+5, col2, "4-"); }
+		else { cprint(LINE_CPU+5, col2, "3-"); }
+	} else {
+		// Timings DDR-I
+		if (temp == 0x0) { cprint(LINE_CPU+5, col2, "3-"); }
+		else if (temp == 0x1) { cprint(LINE_CPU+5, col2, "2.5-"); col2 +=2;}
+		else { cprint(LINE_CPU+5, col2, "2-"); }
+	}
+	col2 +=2;
+	
+	// RAS-To-CAS (tRCD)
+	temp = ((drt >> 4)& 0x3);
+	if (temp == 0x0) { cprint(LINE_CPU+5, col2, "2-"); }
+	else if (temp == 0x1) { cprint(LINE_CPU+5, col2, "3-"); }
+	else if (temp == 0x2) { cprint(LINE_CPU+5, col2, "4-"); }
+	else { cprint(LINE_CPU+5, col2, "5-"); }
+	col2 +=2;
+
+	// RAS Precharge (tRP)
+	temp = (drt&0x3);
+	if (temp == 0x0) { cprint(LINE_CPU+5, col2, "2-"); }
+	else if (temp == 0x1) { cprint(LINE_CPU+5, col2, "3-"); }
+	else if (temp == 0x2) { cprint(LINE_CPU+5, col2, "4-"); }
+	else { cprint(LINE_CPU+5, col2, "5-"); }
+	col2 +=2;
+	
+	// RAS Active to precharge (tRAS)
+	temp = ((drt >> 20)& 0xF);
+	dprint(LINE_CPU+5, col2, temp , 1 ,0);
+	(temp < 10)?(col2 += 1):(col2 += 2);
+	
+	cprint(LINE_CPU+5, col2+1, "/"); col2 +=2;
+	
+	temp = (dcc&0x3);
+	if (temp == 1) { cprint(LINE_CPU+5, col2, " Dual Channel (Asymmetric)"); }
+	else if (temp == 2) { cprint(LINE_CPU+5, col2, " Dual Channel (Interleaved)"); }
+	else { cprint(LINE_CPU+5, col2, " Single Channel (64 bits)"); }
+	
+	
+}
 
 static void poll_timings_i875(void) {
 
@@ -1290,6 +1443,7 @@ static struct pci_memory_controller controllers[] = {
 	{ 0x1022, 0x7006, "AMD 751",   0, poll_fsb_nothing, poll_timings_nothing, setup_amd751, poll_amd751 },
 	{ 0x1022, 0x700c, "AMD 762",   0, poll_fsb_nothing, poll_timings_nothing, setup_amd76x, poll_amd76x },
 	{ 0x1022, 0x700e, "AMD 761",   0, poll_fsb_nothing, poll_timings_nothing, setup_amd76x, poll_amd76x },
+	{ 0x1022, 0x1100, "AMD 8000",  0, poll_fsb_amd64, poll_timings_amd64, setup_amd64, poll_amd64 },
 	{ 0x1022, 0x7454, "AMD 8000",  0, poll_fsb_amd64, poll_timings_amd64, setup_amd64, poll_amd64 },
 	
 	/* Motorola */
@@ -1331,7 +1485,7 @@ static struct pci_memory_controller controllers[] = {
 	{ 0x10de, 0x01A4, "nVidia nForce", 0, poll_fsb_nothing, poll_timings_nothing, setup_nothing, poll_nothing },
 	{ 0x10de, 0x01E0, "nVidia nForce2 SPP", 0, poll_fsb_nf2, poll_timings_nf2, setup_nothing, poll_nothing },
 	{ 0x10de, 0x00D1, "nVidia nForce3", 0, poll_fsb_amd64, poll_timings_amd64, setup_amd64, poll_amd64 },
-	{ 0x10de, 0x00E1, "nVidia nForce3-S", 0, poll_fsb_amd64, poll_timings_amd64, setup_amd64, poll_amd64 },
+	{ 0x10de, 0x00E1, "nForce3 250", 0, poll_fsb_amd64, poll_timings_amd64, setup_amd64, poll_amd64 },
 	
 	/* VIA */
 	{ 0x1106, 0x0305, "VIA KT133/KT133A",    0, poll_fsb_amd32, poll_timings_nothing, setup_nothing, poll_nothing },
@@ -1340,18 +1494,20 @@ static struct pci_memory_controller controllers[] = {
 	{ 0x1106, 0x0585, "vt82c585",  0, poll_fsb_nothing, poll_timings_nothing, setup_nothing, poll_nothing },
 	{ 0x1106, 0x0595, "vt82c595",  0, poll_fsb_nothing, poll_timings_nothing, setup_nothing, poll_nothing },
 	{ 0x1106, 0x0597, "vt82c597",  0, poll_fsb_nothing, poll_timings_nothing, setup_nothing, poll_nothing },
-	{ 0x1106, 0x0598, "vt82c598",  0, poll_fsb_nothing, poll_timings_nothing, setup_nothing, poll_nothing },
-	{ 0x1106, 0x0691, "vt82c691",  0, poll_fsb_nothing, poll_timings_nothing, setup_nothing, poll_nothing },
-	{ 0x1106, 0x0693, "vt82c693",  0, poll_fsb_nothing, poll_timings_nothing, setup_nothing, poll_nothing },
-	{ 0x1106, 0x0694, "vt82c694",  0, poll_fsb_nothing, poll_timings_nothing, setup_nothing, poll_nothing },
-	{ 0x1106, 0x3099, "VIA KT266(A)/KT333", 0, poll_fsb_amd32, poll_timings_nothing, setup_nothing, poll_nothing },
-	{ 0x1106, 0x3189, "VIA KT400(A)/600", 0, poll_fsb_amd32, poll_timings_nothing, setup_nothing, poll_nothing },
+	{ 0x1106, 0x0598, "VT82C598",  0, poll_fsb_nothing, poll_timings_nothing, setup_nothing, poll_nothing },
+	{ 0x1106, 0x0691, "VT82C691/693A/694X",  0, poll_fsb_nothing, poll_timings_nothing, setup_nothing, poll_nothing },
+	{ 0x1106, 0x0693, "VT82C693",  0, poll_fsb_nothing, poll_timings_nothing, setup_nothing, poll_nothing },
+	{ 0x1106, 0x0601, "VIA PLE133",  0, poll_fsb_nothing, poll_timings_nothing, setup_nothing, poll_nothing },
+	{ 0x1106, 0x3099, "VIA KT266(A)/KT333", 0, poll_fsb_nothing, poll_timings_nothing, setup_nothing, poll_nothing },
+	{ 0x1106, 0x3189, "VIA KT400(A)/600", 0, poll_fsb_nothing, poll_timings_nothing, setup_nothing, poll_nothing },
 	{ 0x1106, 0x3205, "VIA KM400", 0, poll_fsb_nothing, poll_timings_nothing, setup_nothing, poll_nothing },
 	{ 0x1106, 0x3116, "VIA KM266", 0, poll_fsb_nothing, poll_timings_nothing, setup_nothing, poll_nothing },
 	{ 0x1106, 0x3156, "VIA KN266", 0, poll_fsb_nothing, poll_timings_nothing, setup_nothing, poll_nothing },
+	{ 0x1106, 0x3123, "VIA CLE266", 0, poll_fsb_nothing, poll_timings_nothing, setup_nothing, poll_nothing },
 	{ 0x1106, 0x0198, "VIA PT800", 0, poll_fsb_nothing, poll_timings_nothing, setup_nothing, poll_nothing },
 	{ 0x1106, 0x3258, "VIA PT880", 0, poll_fsb_nothing, poll_timings_nothing, setup_nothing, poll_nothing },
 	{ 0x1106, 0x3188, "VIA K8T800", 0, poll_fsb_amd64, poll_timings_amd64, setup_amd64, poll_amd64 },
+	{ 0x1106, 0x0282, "VIA K8T800Pro", 0, poll_fsb_amd64, poll_timings_amd64, setup_amd64, poll_amd64 },
 
 	/* Serverworks */
 	{ 0x1166, 0x0008, "CNB20HE",   0, poll_fsb_nothing, poll_timings_nothing, setup_cnb20, poll_nothing },
@@ -1367,8 +1523,6 @@ static struct pci_memory_controller controllers[] = {
         { 0x8086, 0x2560, "Intel i845E/G/PE/GE", 0, poll_fsb_p4, poll_timings_nothing, setup_i845, poll_i845 },
 	{ 0x8086, 0x2500, "Intel i820",      0, poll_fsb_nothing, poll_timings_nothing, setup_i820, poll_i820 },
 	{ 0x8086, 0x2530, "Intel i850",      0, poll_fsb_p4, poll_timings_nothing, setup_i850, poll_i850 },
-	{ 0x8086, 0x2570, "Intel i848/i865", 0, poll_fsb_i875, poll_timings_i875, setup_i875, poll_nothing },
-        { 0x8086, 0x2578, "Intel i875P",     0, poll_fsb_i875, poll_timings_i875, setup_i875, poll_i875 },
 	{ 0x8086, 0x2531, "Intel i860",      1, poll_fsb_nothing, poll_timings_nothing, setup_i860, poll_i860 },
 	{ 0x8086, 0x7030, "Intel i430vx",    0, poll_fsb_nothing, poll_timings_nothing, setup_nothing, poll_nothing },
 	{ 0x8086, 0x7120, "Intel i810",      0, poll_fsb_nothing, poll_timings_nothing, setup_nothing, poll_nothing },
@@ -1383,9 +1537,13 @@ static struct pci_memory_controller controllers[] = {
 	{ 0x8086, 0x2540, "Intel E7500",     1, poll_fsb_p4, poll_timings_nothing, setup_iE7xxx, poll_iE7xxx },
 	{ 0x8086, 0x254C, "Intel E7501",     0, poll_fsb_p4, poll_timings_nothing, setup_iE7xxx, poll_iE7xxx },
 	{ 0x8086, 0x255d, "Intel E7205",     0, poll_fsb_p4, poll_timings_nothing, setup_iE7xxx, poll_iE7xxx },
+	{ 0x8086, 0x2570, "Intel i848/i865", 0, poll_fsb_i875, poll_timings_i875, setup_i875, poll_nothing },
+        { 0x8086, 0x2578, "Intel i875P",     0, poll_fsb_i875, poll_timings_i875, setup_i875, poll_i875 },
 	{ 0x8086, 0x2550, "Intel E7505",     0, poll_fsb_p4, poll_timings_nothing, setup_iE7xxx, poll_iE7xxx },
 	{ 0x8086, 0x3580, "Intel ",          0, poll_fsb_i855, poll_timings_i852, setup_nothing, poll_nothing },
 	{ 0x8086, 0x3340, "Intel i855PM",    0, poll_fsb_i855, poll_timings_i855, setup_nothing, poll_nothing },
+	{ 0x8086, 0x2580, "Intel i915P/G",   0, poll_fsb_i925, poll_timings_i925, setup_i925, poll_nothing },
+	{ 0x8086, 0x2584, "Intel i925X",     0, poll_fsb_i925, poll_timings_i925, setup_i925, poll_nothing },
 };
 
 static void print_memory_controller(void)
