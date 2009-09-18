@@ -3,7 +3,7 @@
  * Released under version 2 of the Gnu Public License.
  * By Chris Brady, cbrady@sgi.com
  * ----------------------------------------------------
- * MemTest86+ V1.30 Specific code (GPL V2.0)
+ * MemTest86+ V1.40 Specific code (GPL V2.0)
  * By Samuel DEMEULEMEESTER, sdemeule@memtest.org
  * http://www.x86-secret.com - http://www.memtest.org
  */
@@ -279,6 +279,17 @@ static void poll_amd751(void)
 	}
 }
 
+/* Still waiting for the CORRECT intel datasheet 
+static void setup_i85x(void)
+{
+		ctrl.cap = ECC_CORRECT;
+		unsigned long drc;
+		
+		pci_conf_read(ctrl.bus, ctrl.dev, 1, 0x70, 4, &drc);
+		ctrl.mode = ((drc>>20)&1)?ECC_CORRECT:ECC_NONE;
+		
+}
+*/
 
 static void setup_amd76x(void)
 {
@@ -873,9 +884,9 @@ static void poll_fsb_i925(void) {
 	int coef = getP4PMmultiplier();
 	long *ptr;
 	
-	
 	/* Find dramratio */
 	pci_conf_read( 0, 0, 0, 0x44, 4, &dev0);
+	dev0 = dev0 & 0xFFFFC000;
 	ptr=(long*)(dev0+0xC00);
 	mchcfg = *ptr & 0xFFFF;
 	dramratio = 1;
@@ -899,7 +910,7 @@ static void poll_fsb_i925(void) {
 	}
 	
 	// Compute RAM Frequency 
-	fsb = ((extclock /1000) / coef);
+	fsb = ((extclock / 1000) / coef);
 	dramclock = fsb * dramratio;
 
 	// Print DRAM Freq 
@@ -1625,7 +1636,7 @@ static struct pci_memory_controller controllers[] = {
 	{ 0x8086, 0x254C, "Intel E7501",     1, poll_fsb_p4, poll_timings_E750x, setup_iE7xxx, poll_iE7xxx },
 	{ 0x8086, 0x255d, "Intel E7205",     0, poll_fsb_p4, poll_timings_nothing, setup_iE7xxx, poll_iE7xxx },
 	{ 0x8086, 0x2570, "Intel i848/i865", 0, poll_fsb_i875, poll_timings_i875, setup_i875, poll_nothing },
-        { 0x8086, 0x2578, "Intel i875P",     0, poll_fsb_i875, poll_timings_i875, setup_i875, poll_i875 },
+  { 0x8086, 0x2578, "Intel i875P",     0, poll_fsb_i875, poll_timings_i875, setup_i875, poll_i875 },
 	{ 0x8086, 0x2550, "Intel E7505",     0, poll_fsb_p4, poll_timings_nothing, setup_iE7xxx, poll_iE7xxx },
 	{ 0x8086, 0x3580, "Intel ",          0, poll_fsb_i855, poll_timings_i852, setup_nothing, poll_nothing },
 	{ 0x8086, 0x3340, "Intel i855PM",    0, poll_fsb_i855, poll_timings_i855, setup_nothing, poll_nothing },

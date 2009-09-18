@@ -1,7 +1,0 @@
-- Added on-fly timings change on some chipsets
-   (Thanks to Eric and Wee for this part)
-- Added i852/855 on-fly timing change
-- Added support for VIA K8T890
-- Added a "Fast" Mode (with MTRR & L1/L2 Caches)
-- Correct a bug (Disable MTRR for stronger test)
-- Some bug fixes

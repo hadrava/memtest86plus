@@ -1,6 +1,8 @@
-			===================
-			= MemTest-86 v3.0 =
-			===================
+			====================
+			= MemTest-86 v3.2  =
+			=   Nov 11, 2004   =
+			=   Chris Brady    =
+			====================
 
 Table of Contents
 =================
@@ -20,12 +22,13 @@ Table of Contents
  14) Known Problems
  15) Planned Features List
  16) Change Log
- 17) Acknowledgments
+ 17) Donations
+ 18) Acknowledgments
 
 
 1) Introduction
 ===============
-Memtest86 is thorough, stand alone memory test for Intel i386 architecture
+Memtest86 is thorough, stand alone memory test for Intel/AMD x86 architecture
 systems.  BIOS based memory tests are only a quick check and often miss
 failures that are detected by Memtest86.
 
@@ -33,16 +36,14 @@ For updates go to the Memtest86 web page:
 
 	http://www.memtest86.com
 
-To report problems or provide feedback send email to:
-
-	cbrady@cray.com
-
 
 2) Licensing
 ============
 Memtest86 is released under the terms of the Gnu Public License (GPL). Other
 than the provisions of the GPL there are no restrictions for use, private or
 commercial.  See: http://www.gnu.org/licenses/gpl.html for details.
+Explicit permission for inclusion of Memtest86 in software compilations and
+publications is hereby granted.
 
 
 3) Installation (Linux Only)
@@ -78,11 +79,7 @@ To boot from a disk partition via lilo
 If you encounter build problems a binary image has been included (precomp.bin).
 To create a boot-disk with this pre-built image do the following:
    1) Insert a blank write enabled floppy disk.
-   2) Type "make install-bin"
-
-If you have problems with memory sizing an option is available to get
-the memory size from the BIOS.  To enable this option uncomment the
-define for BIOS_MEMSZ in config.h and then rebuild and install the test.
+   2) Type "make install-precomp"
 
 
 4) Serial Console
@@ -117,8 +114,8 @@ the available on-line commands.
 	       5) Error Summary
 	       6) Error Report Mode 
 	       7) ECC Mode
-	       8) Restart Test
-	       9) Reprint Screen
+	       8) Restart 
+	       9) Adv. Options
 
   SP    Set scroll lock (Stops scrolling of error messages)
 	Note: Testing is stalled when the scroll lock is
@@ -223,7 +220,7 @@ the failure to occur.  Most failures will be due to a problem with memory.
 When it is not, the only option is to replace parts until the failure is
 corrected.  
 
-Once a memory error has been detected, determining the failing SIMM/DIMM
+Once a memory error has been detected, determining the failing
 module is not a clear cut procedure.  With the large number of motherboard
 vendors and possible combinations of simm slots it would be difficult if
 not impossible to assemble complete information about how a particular
@@ -255,14 +252,14 @@ left to selective replacement of modules to find the failure.
 4) Avoiding allocation
 The printing mode for BadRAM patterns is intended to construct boot time
 parameters for a Linux kernel that is compiled with BadRAM support. This
-work-around makes it possible for Linux to reliably run on your average damaged
-RAM (or clearly panic if it cannot).  For more information on BadRAM support
+work-around makes it possible for Linux to reliably run on defective
+RAM.  For more information on BadRAM support
 for Linux, sail to
 
        http://home.zonnet.nl/vanrein/badram
 
 Sometimes memory errors show up due to component incompatibility.  A memory
-DIMM/SIMM may work fine in one system and not in another.  This is not
+module may work fine in one system and not in another.  This is not
 uncommon and is a source of confusion.  The components are not necessarily
 bad but certain combinations may need to be avoided.
 
@@ -289,43 +286,27 @@ Memtest86 to crash in the same way.
 9) Execution Time
 ==================
 The time required for a complete pass of Memtest86 will vary greatly
-depending on CPU speed, memory speed and memory size.  Here are the
-execution times from a Cleron-366 with 64MB of SDRAM:
-
-  Test 0:     0:05
-  Test 1:     0:18
-  Test 2:     1:02
-  Test 3:     1:38
-  Test 4:     8:05
-  Test 5:     1:40
-  Test 6:     4:24
-  Test 7:     6:04
-
-  Total Time for Default tests:  23:16
-
-  Test 8:     12:30
-  Test 9:     49:30
-  Test 10:    30:34
-  Test 11:  3:29:40
-
-  Total Time for All tests:  5:25:30
-
+depending on CPU speed, memory speed and memory size. Memtest86 executes 
+indefinitely.  The pass counter increments each time that all of the 
+selected tests have been run.  Generally a single pass is sufficient to 
+catch all but the most obscure errors. However, for complete confidence 
+when intermittent errors are suspected testing for a longer period is advised.
 
 10) Memory Testing Philosophy
-============================
+=============================
 There are many good approaches for testing memory.  However, many tests
 simply throw some patterns at memory without much thought or knowledge
-of the memory architecture or how errors can best be detected. This
+of memory architecture or how errors can best be detected. This
 works fine for hard memory failures but does little to find intermittent
-errors.  The BIOS based memory tests are useless for finding intermittent
+errors. BIOS based memory tests are useless for finding intermittent
 memory errors.
 
 Memory chips consist of a large array of tightly packed memory cells,
 one for each bit of data.  The vast majority of the intermittent failures
 are a result of interaction between these memory cells.  Often writing a
 memory cell can cause one of the adjacent cells to be written with the
-same data.  An effective memory test should attempt to test for this
-condition.  Therefore, an ideal strategy for testing memory would be
+same data. An effective memory test attempts to test for this
+condition. Therefore, an ideal strategy for testing memory would be
 the following:
 
   1) write a cell with a zero
@@ -340,7 +321,7 @@ are testing algorithms that can approximate this ideal strategy.
 
 
 11) Memtest86 Test Algorithms
-============================
+=============================
 Memtest86 uses two algorithms that provide a reasonable approximation
 of the ideal test strategy above.  The first of these strategies is called
 moving inversions.  The moving inversion test works as follows:
@@ -357,7 +338,7 @@ moving inversions.  The moving inversion test works as follows:
 	3c decrement the address
 	repeat 3a - 3c
 
-This this algorithm is a good approximation of an ideal memory test but
+This algorithm is a good approximation of an ideal memory test but
 there are some limitations.  Most high density chips today store data
 4 to 16 bits wide.  With chips that are more than one bit wide it
 is impossible to selectively read or write just one bit.  This means
@@ -389,14 +370,11 @@ speed and thoroughness.
 
 
 12) Individual Test Descriptions
-===============================
+================================
 Memtest86 executes a series of numbered test sections to check for
 errors.  These test sections consist of a combination of test
 algorithm, data pattern and caching. The execution order for these tests
 were arranged so that errors will be detected as rapidly as possible.
-Tests 8, 9, 10 and 11 are very long running extended tests and are only
-executed when extended testing is selected.  The extended tests have a
-low probability of finding errors that were missed by the default tests.
 A description of each of the test sections follows:
 
 Test 0 [Address test, walking ones, no cache]
@@ -404,33 +382,32 @@ Test 0 [Address test, walking ones, no cache]
   address pattern.  Errors from this test are not used to calculate
   BadRAM patterns.
 
-Test 1 [Moving Inv, ones&zeros, cached]
-  This test uses the moving inversions algorithm with patterns of only
-  ones and zeros.  Cache is enabled even though it interferes to some
-  degree with the test algorithm.  With cache enabled this test does not
-  take long and should quickly find all "hard" errors and some more
-  subtle errors.  This section is only a quick check.
-
-Test 2 [Address test, own address, no cache]
+Test 1 [Address test, own address]
   Each address is written with its own address and then is checked
   for consistency.  In theory previous tests should have caught any
   memory addressing problems.  This test should catch any addressing
   errors that somehow were not previously detected.
+
+Test 2 [Moving inversions, ones&zeros]
+  This test uses the moving inversions algorithm with patterns of all
+  ones and zeros.  Cache is enabled even though it interferes to some
+  degree with the test algorithm.  With cache enabled this test does not
+  take long and should quickly find all "hard" errors and some more
+  subtle errors.  This section is only a quick check.
  
-Test 3 [Moving inv, 8 bit pat, cached]
-  This is the same as test zero but uses a 8 bit wide pattern of
+Test 3 [Moving inversions, 8 bit pat]
+  This is the same as test 1 but uses a 8 bit wide pattern of
   "walking" ones and zeros.  This test will better detect subtle errors
   in "wide" memory chips.  A total of 20 data patterns are used.
-  
-Test 4 [Moving inv, 32 bit pat, cached]
-  This is a variation of the moving inversions algorithm that
-  shifts the data pattern left one bit for each successive address.
-  The starting bit position is shifted left for each pass.  To use
-  all possible data patterns 32 passes are required.  This test is
-  very effective at detecting data sensitive errors in "wide" memory
-  chips.
 
-Test 5 [Block move, 64 moves, cached]
+Test 4 [Moving inversions, random pattern]
+  Test 4 uses the same algorithm as test 1 but the data pattern is a
+  random number and it's complement. This test is particularly effective
+  in finding difficult to detect data sensitive errors. A total of 60
+  patterns are used. The random number sequence is different with each pass 
+  so multiple passes increase effectiveness. 
+  
+Test 5 [Block move, 64 moves]
   This test stresses memory by using block move (movsl) instructions
   and is based on Robert Redelmeier's burnBX test.  Memory is initialized
   with shifting patterns that are inverted every 8 bytes.  Then 4MB blocks
@@ -443,60 +420,57 @@ Test 5 [Block move, 64 moves, cached]
   reported address.  Errors from this test are not used to calculate
   BadRAM patterns.
 
-Test 6 [Modulo 20, ones&zeros, cached]
+Test 6 [Moving inversions, 32 bit pat]
+  This is a variation of the moving inversions algorithm that shifts the data
+  pattern left one bit for each successive address. The starting bit position
+  is shifted left for each pass. To use all possible data patterns 32 passes
+  are required.  This test is quite effective at detecting data sensitive
+  errors but the execution time is long.
+ 
+Test 7 [Random number sequence]
+ This test writes a series of random numbers into memory. By resetting the
+ seed for the random number the same sequence of number can be created for
+ a reference. The initial pattern is checked and then complemented and
+ checked again on the next pass. However, unlike the moving inversions test
+ writing and checking can only be done in the forward direction.
+
+Test 8 [Modulo 20, ones&zeros]
   Using the Modulo-X algorithm should uncover errors that are not
   detected by moving inversions due to cache and buffering interference
-  with the the algorithm.  As with test one only ones and zeros are
-  used for data patterns.
+  with the the algorithm.  All ones and zeros are used for data patterns.
 
-Test 7 [Moving inv, ones&zeros, no cache]
-  This is the same as test one but without cache.  With cache off
-  there will be much less interference with the test algorithm.
-  However, the execution time is much, much longer.  This test may
-  find very subtle errors missed by tests one and two.
-
-Test 8 [Block move, 512 moves, cached]
-  This is the same as test #5 except that we do a lot more memory moves
-  before checking memory. Errors from this test are not used to calculate
-  BadRAM patterns.
-
-Test 9 [Moving inv, 8 bit pat, no cache]
-  This is the first extended test.  By using an 8 bit pattern with
-  cache off this test should be effective in detecting all types of
-  errors.  However, it takes a very long time to execute and there is
-  a low probability that it will detect errors not found by the previous
-  tests.
-
-Test 10 [Modulo 20, 8 bit, cached]
-  This is the first test to use the modulo 20 algorithm with a data
-  pattern other than ones and zeros.  This combination of algorithm and
-  data pattern should be quite effective.  However, it's very long
-  execution time relegates it to the extended test section.
-
-Test 11 [Moving inv, 32 bit pat, no cache]
-  This test should be the most effective in finding errors that are
-  data pattern sensitive.  However, without cache it's execution time
-  is excessively long.
+Test 9 [Bit fade test, 90 min, 2 patterns]
+  The bit fade test initializes all of memory with a pattern and then
+  sleeps for 90 minutes. Then memory is examined to see if any memory bits
+  have changed. All ones and all zero patterns are used. This test takes
+  3 hours to complete. The Bit Fade test is not included in the normal test 
+  sequence and must be run manually via the runtime configuration menu.
 
 
 13) Problem Reporting - Contact Information
 ===========================================
-Due to the growing popularity of Memtest86 I am being inundated by,
-questions, feedback, problem reports and requests for enhancements.
-Memtest86 is a side project and often my day job interferes with Memtest86
-support.  To help me keep up with this project, please use the following
-guidelines.
+Due to the growing popularity of Memtest86 (more than 200,000 downloads per
+month) I have been inundated by, questions, feedback, problem reports and
+requests for enhancements. I simply do not have time to repond to ANY Memtest86
+emails. Bug reports and suggestions are welcome but will typically not be
+responded to.
+
+*** NOTE: *** The Keyword MEM86 must appear in the subject of all emails or
+the message will be automaticly deleted before it gets to me. This thanks to
+spam and viruses!
 
 Problems/Bugs:
 Before submitting a problem report please check the Known Problems section
 to see if this problem has already been reported.  Be sure to include the
 version number and also any details that may be relevant.
 
-Memtest86 sometimes just dies with no hints as to what went wrong.
-Without any details it is nearly impossible to fix these failures.  Fixing
-these problems will require debugging assistance on your part.  There is
-no point in reporting these failures unless you have a Linux system and
-would be willing to assist me in finding the failure.
+Chris Brady, Email: bugs@memtest86.com
+
+With some PC's Memtest86 will just die with no hints as to what went wrong.
+Without any details it is impossible to fix these failures.  Fixing these
+problems will require debugging on your part. There is no point in reporting
+these failures unless you have a Linux system and would be willing to debug
+the failure.
 
 Enhancements:
 If you would like to request an enhancement please see if is already on
@@ -505,13 +479,16 @@ be considered, but not all can be implemented.  If you are be interested in
 contributing code please contact me so that the integration can be
 co-ordinated.
 
-Feedback:
-I have received a lot of feedback about the effectiveness of various
-tests.  I am still interested in hearing about failures that only a single
-test was able to detect.  Of course, gratitude, praise and cash are always
-accepted.
+Chris Brady, Email: enhance@memtest86.com
 
-Chris Brady, Email: cbrady@cray.com
+Questions:
+Unfortunately, I do not have time to respond to any questions or provide
+assistance with troubleshooting problems. Please read the Troubleshooting
+and Known Problems sections for assistance with problems. These sections have
+the answers for the questions that I have answers to. If there is not an
+answer for your problem in these sections it is probably not something I can
+help you with.
+
 
 
 14) Known Problems
@@ -563,6 +540,48 @@ There is no timetable for when these will be implemented, if ever.
 
 16) Change Log
 ==============
+Enhancements in v3.2 (11/Nov/2004)
+
+  Added two new, highly effective tests that use random number patterns
+  (tests 4 and 6).
+
+  Reworked the online commands:
+	- Changed wording for better clarity
+	- Dropped Cache Mode menu
+
+  Updated CPU detection for newer AMD, Intel and Cyrix CPUs.
+
+  Reworked test sequence:
+	- Dropped ineffective non cached tests (Numbers 7-11) 
+	- Changed cache mode to cached for test 2 
+	- Fixed bug that did not allow tsome tests to be skipped
+	- Added bailout for Bit fade test
+
+  Error reports are highlighted in red to provide a more vivid error 
+  indication.
+	    
+  Added support for a large number of additional chipsets. (from Memtest86+
+  v1.30)
+
+  Added an advanced setup feature that with new chiset allows memory timings
+  to be altered from inside Memtest86. (from Memtest86+ v1.30)
+
+
+Enhancements in v3.1 (11/Mar/2004)
+
+   Added processor detection for newer AMD processors.
+
+   Added new "Bit Fade" extended test.
+
+   Fixed a complile time bug with gcc version 3.x.
+
+   E7500 memory controller ECC support
+
+   Added support for 16bit ECC syndromes
+
+   Option to keep the serial port baud rate of the boot loader
+
+
 Enhancements in v3.0 (22/May/2002) Provided by Eric Biederman
 
    Testing of more than 2gb of memory is at last fixed (tested with 6Gb)
@@ -796,18 +815,36 @@ Enhancements in v1.3
    Problems with enabling & disabling cache on some motherboards have been
    corrected.
 
-17) Acknowledgments
+
+17) Donations
+=============
+With considerable reluctance I am resorting to a low key solicitation for
+donations.  It never has been my intent to profit from this program and I am
+pleased that Memtest86 has been helpful.  However, the time required to
+support this program has grown significantly.  I also have the modest
+cost of hosting this web-site that I would like to recover.  So if you find
+Memtest86 useful and you feel inclined to make a small PayPal donation please
+do so.  Use "cbrady@memtest86.com" for the recipient.
+
+
+18) Acknowledgments
 ===================
-The initial versions of the source files bootsect.S, setup.S, head.S and
-build.c are from the Linux 1.2.1 kernel and have been heavily modified.
+Memtest86 was developed by Chris Brady with the resources and assistance
+listed below:
 
-Doug Sisk provided code to support a console connected via a serial port.
+- The initial versions of the source files bootsect.S, setup.S, head.S and
+  build.c are from the Linux 1.2.1 kernel and have been heavily modified.
 
-Code to create BadRAM patterns was provided by Rick van Rein.
+- Doug Sisk provided code to support a console connected via a serial port.
 
-Tests 5 and 8 are based on Robert Redelmeier's burnBX test.
+- Code to create BadRAM patterns was provided by Rick van Rein.
 
-Screen buffer code was provided by Jani Averbach.
+- Tests 5 and 8 are based on Robert Redelmeier's burnBX test.
 
-Eric Biederman provided all of the feature content for version 3.0
-plus many bugfixes and significant code cleanup.
+- Screen buffer code was provided by Jani Averbach.
+
+- Eric Biederman provided all of the feature content for version 3.0
+  plus many bugfixes and significant code cleanup.
+
+- Major enhancements to hardware detection and reporting in version 3.2
+  provided by Samuel Demeulemeester (from Memtest86+ v1.11).

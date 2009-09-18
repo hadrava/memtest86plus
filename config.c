@@ -1,28 +1,23 @@
-/* config.c - MemTest-86  Version 3.0
+/* config.c - MemTest-86  Version 3.2
  *
  * Released under version 2 of the Gnu Public License.
- * By Chris Brady, cbrady@sgi.com
+ * By Chris Brady
  * ----------------------------------------------------
- * MemTest86+ V1.30 Specific code (GPL V2.0)
+ * MemTest86+ V2.00 Specific code (GPL V2.0)
  * By Samuel DEMEULEMEESTER, sdemeule@memtest.org
  * http://www.x86-secret.com - http://www.memtest.org
  */
-
 #include "test.h"
 #include "screen_buffer.h"
 #include "controller.h"
-#include "extra.h"
 #define ITER 20
 
 extern int bail, beepmode;
 extern struct tseq tseq[];
-/* extern struct vars *v; */
 extern short e820_nr;
 extern char memsz_mode;
 
-int fast_mode;
-
-char save[POP_H][POP_W];
+char save[2][POP_H][POP_W];
 
 void get_config()
 {
@@ -34,59 +29,86 @@ void get_config()
 	wait_keyup();
 	while(!flag) {
 		cprint(POP_Y+1,  POP_X+2, "Configuration:");
-		cprint(POP_Y+3,  POP_X+6, "(1) Cache Mode");
-		cprint(POP_Y+4,  POP_X+6, "(2) Test Selection");
-		cprint(POP_Y+5,  POP_X+6, "(3) Address Range");
-		cprint(POP_Y+6,  POP_X+6, "(4) Memory Sizing");
-		cprint(POP_Y+7,  POP_X+6, "(5) Error Summary");
-		cprint(POP_Y+8,  POP_X+6, "(6) Error Report Mode");
-		cprint(POP_Y+9,  POP_X+6, "(7) ECC Mode"); 
-		cprint(POP_Y+10, POP_X+6, "(8) Restart Test");
+		cprint(POP_Y+3,  POP_X+6, "(1) Test Selection");
+		cprint(POP_Y+4,  POP_X+6, "(2) Address Range");
+		cprint(POP_Y+5,  POP_X+6, "(3) Memory Sizing");
+		cprint(POP_Y+6,  POP_X+6, "(4) Error Summary");
+		cprint(POP_Y+7,  POP_X+6, "(5) Error Report Mode");
+		cprint(POP_Y+8,  POP_X+6, "(6) ECC Mode"); 
+		cprint(POP_Y+9,  POP_X+6, "(7) Restart");
+		cprint(POP_Y+10, POP_X+6, "(8) Refresh Screen");
 		cprint(POP_Y+11, POP_X+6, "(9) Adv. Options");
-		cprint(POP_Y+12, POP_X+6, "(0) Exit");
+		cprint(POP_Y+12,POP_X+6,"(0) Continue");
 
 		/* Wait for key release */
 		/* Fooey! This nuts'es up the serial input. */
 		sflag = 0;
 		switch(get_key()) {
 		case 2:
-			/* 1 - Set cache mode */
+			/* 1 - Test Selection */
 			popclear();
-			cprint(POP_Y+1, POP_X+2, "Cache Mode:");
-			cprint(POP_Y+3, POP_X+6, "(1) Test Controlled");
-			cprint(POP_Y+4, POP_X+6, "(2) Always On");
-			cprint(POP_Y+5, POP_X+6, "(3) Always Off");
-			cprint(POP_Y+6, POP_X+6, "(0) Cancel");
-			cprint(POP_Y+3+v->cache_flag, POP_X+5, ">");
+			cprint(POP_Y+1, POP_X+2, "Test Selection:");
+			cprint(POP_Y+3, POP_X+6, "(1) Default Tests");
+			cprint(POP_Y+4, POP_X+6, "(2) Skip Current Test");
+			cprint(POP_Y+5, POP_X+6, "(3) Select Test");
+			cprint(POP_Y+6, POP_X+6, "(4) Select Bit Fade Test");
+			cprint(POP_Y+7, POP_X+6, "(0) Continue");
+			if (v->testsel < 0) {
+				cprint(POP_Y+3, POP_X+5, ">");
+			} else {
+				cprint(POP_Y+5, POP_X+5, ">");
+			}
 			wait_keyup();
 			while (!sflag) {
 				switch(get_key()) {
 				case 2:
-					/* test controled */
-					v->cache_flag = 0;
-					set_cache(tseq[v->test].cache);
-					find_ticks();
-					sflag++;
-					break;
-				case 3:
-					/* Cache on */
-					v->cache_flag = 1;
-					if (tseq[v->test].cache == 0)  {
+					/* Default */
+					if (v->testsel == 9) {
 						bail++;
 					}
-					set_cache(1);
+					v->testsel = -1;
 					find_ticks();
+					sflag++;
+					cprint(LINE_INFO, COL_TST, "Std");
+					break;
+				case 3:
+					/* Skip test */
+					bail++;
 					sflag++;
 					break;
 				case 4:
-					/* Cache off */
-					v->cache_flag = 2;
-					if (tseq[v->test].cache == 1)  {
-						bail++;
+					/* Select test */
+					popclear();
+					cprint(POP_Y+1, POP_X+3,
+						"Test Selection:");
+					cprint(POP_Y+4, POP_X+5,
+						"Test Number [0-9]: ");
+					i = getval(POP_Y+4, POP_X+24, 0);
+					if (i <= 9) {
+						if (i != v->testsel) {
+							v->pass = -1;
+							v->test = -1;
+						}
+						v->testsel = i;
 					}
 					find_ticks();
 					sflag++;
+					bail++;
+					cprint(LINE_INFO, COL_TST, "#");
+					dprint(LINE_INFO, COL_TST+1, i, 2, 1);
 					break;
+				case 5:
+					if (v->testsel != 9) {
+						v->pass = -1;
+						v->test = -1;
+					}
+					v->testsel = 9;
+                                        find_ticks();
+                                        sflag++;
+                                        bail++;
+                                        cprint(LINE_INFO, COL_TST, "#");
+                                        dprint(LINE_INFO, COL_TST+1, 9, 2, 1);
+                                        break;
 				case 11:
 				case 57:
 					sflag++;
@@ -96,124 +118,13 @@ void get_config()
 			popclear();
 			break;
 		case 3:
-			/* 2 - Test Selection */
-			popclear();
-			cprint(POP_Y+1, POP_X+2, "Test Selection:");
-			cprint(POP_Y+3, POP_X+6, "(1) Default Tests");
-			cprint(POP_Y+4, POP_X+6, "(2) Quick Tests");
-			cprint(POP_Y+5, POP_X+6, "(3) Extended Tests");
-			cprint(POP_Y+6, POP_X+6, "(4) All Tests");
-			cprint(POP_Y+7, POP_X+6, "(5) Skip Current Test");
-			cprint(POP_Y+8, POP_X+6, "(6) Select Test");
-			cprint(POP_Y+9, POP_X+6, "(7) Print mode");
-			cprint(POP_Y+10, POP_X+6, "(0) Cancel");
-			if (v->testsel < 0) {
-				if (fast_mode == 1) {
-				cprint(POP_Y+4, POP_X+5, ">");		
-				} else {
-					if (v->xtst_flag == 0) {
-						cprint(POP_Y+3, POP_X+5, ">");
-					} else {
-						cprint(POP_Y+4+v->xtst_flag, POP_X+5, ">");				
-					}
-				}
-			} else {
-				cprint(POP_Y+8, POP_X+5, ">");
-			}
-			wait_keyup();
-			while (!sflag) {
-				switch(get_key()) {
-				case 2:
-					/* Default */
-					v->xtst_flag = 0;
-					fast_mode = 0;
-					if (v->test > DEFTESTS) {
-						bail++;
-					}
-					v->testsel = -1;
-					find_ticks();
-					sflag++;
-					cprint(LINE_INFO, COL_TST, " Std");
-					break;
-				case 3:
-					/* Fast */
-					v->xtst_flag = 0;
-					fast_mode = 1;
-					if (v->test > DEFTESTS) {
-						bail++;
-					}
-					v->testsel = -1;
-					v->pass = 0;
-					v->ecount = 0;
-					find_ticks();
-					sflag++;
-					cprint(LINE_INFO, COL_TST, "Fast");
-					break;
-				case 4:
-					/* Extended */
-					v->xtst_flag = 1;
-					fast_mode = 0;
-					if (v->test <= DEFTESTS) {
-						bail++;
-					}
-					v->testsel = -1;
-					find_ticks();
-					sflag++;
-					cprint(LINE_INFO, COL_TST, " Ext");
-					break;
-				case 5:
-					/* All */
-					fast_mode = 0;
-					v->xtst_flag = 2;
-					v->testsel = -1;
-					find_ticks();
-					sflag++;
-					cprint(LINE_INFO, COL_TST, " All");
-					break;
-				case 6:
-					/* Skip test */
-					bail++;
-					sflag++;
-					break;
-				case 7:
-					/* Select test */
-					popclear();
-					cprint(POP_Y+1, POP_X+2,
-						"Test Selection:");
-					cprint(POP_Y+3, POP_X+4,
-						"Test Number [0-12]: ");
-					i = getval(POP_Y+3, POP_X+24, 0);
-					if (i <= 12) {
-						if (i != v->testsel) {
-							v->pass = 0;
-							v->ecount = 0;
-						}
-						v->testsel = i;
-					}
-					v->test = -1;
-					v->pass = -1;
-					find_ticks();
-					sflag++;
-					bail++;
-					cprint(LINE_INFO, COL_TST, " #");
-					dprint(LINE_INFO, COL_TST+1, i, 2, 1);
-					break;
-				case 11:
-				case 57:
-					sflag++;
-					break;
-				}
-			}
-			popclear();
-			break;
-		case 4:
-			/* 3 - Address Range */
+			/* 2 - Address Range */
 			popclear();
 			cprint(POP_Y+1, POP_X+2, "Test Address Range:");
 			cprint(POP_Y+3, POP_X+6, "(1) Set Lower Limit");
 			cprint(POP_Y+4, POP_X+6, "(2) Set Upper Limit");
 			cprint(POP_Y+5, POP_X+6, "(3) Test All Memory");
-			cprint(POP_Y+6, POP_X+6, "(0) Cancel");
+			cprint(POP_Y+6, POP_X+6, "(0) Continue");
 			wait_keyup();
 			while (!sflag) {
 				switch(get_key()) {
@@ -266,26 +177,26 @@ void get_config()
 					break;
 				case 11:
 				case 57:
-					/* 0/CR - Cancel */
+					/* 0/CR - Continue */
 					sflag++;
 					break;
 				}
 			}
 			popclear();
 			break;
-		case 5:
-			/* 4 - Memory Sizing */
+		case 4:
+			/* 3 - Memory Sizing */
 			popclear();
 			cprint(POP_Y+1, POP_X+2, "Memory Sizing:");
 			cprint(POP_Y+3, POP_X+6, "(1) BIOS - Std");
 			if (e820_nr) {
 				cprint(POP_Y+4, POP_X+6, "(2) BIOS - All");
 				cprint(POP_Y+5, POP_X+6, "(3) Probe");
-				cprint(POP_Y+6, POP_X+6, "(0) Cancel");
+				cprint(POP_Y+6, POP_X+6, "(0) Continue");
 				cprint(POP_Y+2+memsz_mode, POP_X+5, ">");
 			} else {
 				cprint(POP_Y+4, POP_X+6, "(3) Probe");
-				cprint(POP_Y+5, POP_X+6, "(0) Cancel");
+				cprint(POP_Y+5, POP_X+6, "(0) Continue");
 				if (memsz_mode == SZ_MODE_BIOS) {
 					cprint(POP_Y+3, POP_X+5, ">");
 				} else {
@@ -336,15 +247,15 @@ void get_config()
 					break;
 				case 11:
 				case 57:
-					/* 0/CR - Cancel */
+					/* 0/CR - Continue */
 					sflag++;
 					break;
 				}
 			}
 			popclear();
 			break;
-		case 6:
-			/* 5 - Show error summary */
+		case 5:
+			/* 4 - Show error summary */
 			popclear();
 			for (i=0; tseq[i].msg != NULL; i++) {
 				cprint(POP_Y+1+i, POP_X+2, "Test:");
@@ -357,8 +268,8 @@ void get_config()
 			while (get_key() == 0);
 			popclear();
 			break;
-		case 7:
-			/* 6 - Printing Mode */
+		case 6:
+			/* 5 - Printing Mode */
 			popclear();
 			cprint(POP_Y+1, POP_X+2, "Printing Mode:");
 			cprint(POP_Y+3, POP_X+6, "(1) Individual Errors");
@@ -392,24 +303,24 @@ void get_config()
 					/* Set Beep On Error mode */
 					beepmode = !beepmode;
 					sflag++;
-					break;
+					break;				
 				case 11:
 				case 57:
-					/* 0/CR - Cancel */
+					/* 0/CR - Continue */
 					sflag++;
 					break;
 				}
 			}
 			popclear();
 			break;
-		case 8:
-			/* 7 - ECC Polling Mode */
+		case 7:
+			/* 6 - ECC Polling Mode */
 			popclear();
 			cprint(POP_Y+1, POP_X+2, "ECC Polling Mode:");
 			cprint(POP_Y+3, POP_X+6, "(1) Recommended");
 			cprint(POP_Y+4, POP_X+6, "(2) On");
 			cprint(POP_Y+5, POP_X+6, "(3) Off");
-			cprint(POP_Y+6, POP_X+6, "(0) Cancel");
+			cprint(POP_Y+6, POP_X+6, "(0) Continue");
 			wait_keyup();
 			while(!sflag) {
 				switch(get_key()) {
@@ -427,52 +338,28 @@ void get_config()
 					break;
 				case 11:
 				case 57:
-					/* 0/CR - Cancel */
+					/* 0/CR - Continue */
 					sflag++;
 					break;
 				}
 			}
 			popclear();
 			break;
-		case 9:
+		case 8:
 			wait_keyup();
 			restart();
 			break;
- 		case 10:   // experimental extra options
- 			popclear();
- 			cprint(POP_Y+1, POP_X+2, "Adv. Options :");
- 			cprint(POP_Y+3, POP_X+5, "(1) Modify Timing ");
- 			cprint(POP_Y+4, POP_X+5, "(2) Reprint Screen");
- 			cprint(POP_Y+5, POP_X+5, "(0) Cancel        ");
- 			wait_keyup();
- 			while(!sflag) 
-   			{
- 				switch(get_key()) 
- 				{
- 				case 2:
- 				popclear();
- 				get_menu();
- 	            		case 3:
- 				reprint_screen = 1;
- 				sflag++;
- 				flag++;
- 				break;
- 				//prime();
- 				case 4:
- 				break;
- 				case 11:
- 				case 57:
- 				/* 0/CR - Cancel */
- 					sflag++;
- 					break;
- 				}	
- 			}
- 			popclear();
+		case 9:
+			reprint_screen = 1;
+			flag++;
+			break;
+                case 10:
+			get_menu();
 			break;
 		case 11:
 		case 57:
 		case 28:
-			/* 0/CR/SP - Cancel */
+			/* 0/CR/SP - Continue */
 			flag++;
 			break;
 		}
@@ -495,10 +382,11 @@ void popup()
 	for (i=POP_Y; i<POP_Y + POP_H; i++) { 
 		for (j=POP_X; j<POP_X + POP_W; j++) { 
 			pp = (char *)(SCREEN_ADR + (i * 160) + (j * 2));
-                        save[i-POP_Y][j-POP_X] = get_scrn_buf(i, j);	/* Save screen */
+                        save[0][i-POP_Y][j-POP_X] = *pp;  /* Save screen */
                         set_scrn_buf(i, j, ' ');
 			*pp = ' ';		/* Clear */                        
 			pp++;
+                        save[1][i-POP_Y][j-POP_X] = *pp;
 			*pp = 0x07;		/* Change Background to black */
 		}
 	}
@@ -513,10 +401,10 @@ void popdown()
 	for (i=POP_Y; i<POP_Y + POP_H; i++) { 
 		for (j=POP_X; j<POP_X + POP_W; j++) { 
 			pp = (char *)(SCREEN_ADR + (i * 160) + (j * 2));
-			*pp = save[i-POP_Y][j-POP_X];	/* Restore screen */
-                        set_scrn_buf(i, j, save[i-POP_Y][j-POP_X]);
+			*pp = save[0][i-POP_Y][j-POP_X]; /* Restore screen */
+                        set_scrn_buf(i, j, save[0][i-POP_Y][j-POP_X]);
 			pp++;
-			*pp = 0x17;		/* Reset background color */
+			*pp = save[1][i-POP_Y][j-POP_X]; /* Restore color */
 		}
 	}
         tty_print_region(POP_Y, POP_X, POP_Y+POP_H, POP_X+POP_W);
@@ -530,7 +418,7 @@ void popclear()
 	for (i=POP_Y; i<POP_Y + POP_H; i++) { 
 		for (j=POP_X; j<POP_X + POP_W; j++) { 
 			pp = (char *)(SCREEN_ADR + (i * 160) + (j * 2));
-			*pp = ' ';		/* Clear screen */
+			*pp = ' ';		/* Clear popup */
                         set_scrn_buf(i, j, ' ');
 			pp++;
 		}

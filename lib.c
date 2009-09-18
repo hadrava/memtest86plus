@@ -403,22 +403,12 @@ void set_cache(int val)
 	}
 	switch(val) {
 	case 0:
-		if (fast_mode != 1) {
-			cache_off();	
-			if (v->cache_flag) {
-				cprint(LINE_INFO, COL_CACHE, "OFF");
-			} else {
-				cprint(LINE_INFO, COL_CACHE, "off");
-			}
-		}
+		cache_off();	
+		cprint(LINE_INFO, COL_CACHE, "off");
 		break;
 	case 1:
 		cache_on();
-		if (v->cache_flag) {
-			cprint(LINE_INFO, COL_CACHE, " ON");
-		} else {
-			cprint(LINE_INFO, COL_CACHE, " on");
-		}
+		cprint(LINE_INFO, COL_CACHE, " on");
 		break;
 	}
 }

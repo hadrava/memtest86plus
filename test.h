@@ -1,12 +1,13 @@
-/* test.h - MemTest-86  Version 3.0
+/* test.h - MemTest-86  Version 3.2
  *
  * Released under version 2 of the Gnu Public License.
- * By Chris Brady, cbrady@sgi.com
+ * By Chris Brady
  * ----------------------------------------------------
- * MemTest86+ V1.30 Specific code (GPL V2.0)
+ * MemTest86+ V2.00 Specific code (GPL V2.0)
  * By Samuel DEMEULEMEESTER, sdemeule@memtest.org
  * http://www.x86-secret.com - http://www.memtest.org
  */
+
 
 #define E88     0x00
 #define E801    0x04
@@ -39,8 +40,6 @@ struct mem_info_t {
 
 typedef unsigned long ulong;
 #define SPINSZ		0x800000
-#define DEFTESTS	7
-#define DEFTESTS2	11
 #define MOD_SZ		20
 #define BAILOUT		if (bail) goto skip_test;
 #define BAILR		if (bail) return;
@@ -70,14 +69,13 @@ typedef unsigned long ulong;
 #define COL_ERR		63
 #define COL_ECC_ERR	72
 #define LINE_HEADER	12
-#define LINE_SCROLL	14 
+#define LINE_SCROLL	14
 #define BAR_SIZE	(78-COL_MID-9)
 
 #define POP_W	30
-#define POP_H	13
-#define POP_X   16
-// #define POP_X	(80-POP_W-2)/2
-#define POP_Y	10
+#define POP_H	15
+#define POP_X	16
+#define POP_Y	8
 #define NULL	0
 
 /* memspeed operations */
@@ -111,12 +109,15 @@ void xprint(int y,int x,ulong val);
 void aprint(int y,int x,ulong page);
 void dprint(int y,int x,ulong val,int len, int right);
 void movinv1(int iter, ulong p1, ulong p2);
+void movinvr();
 void movinv32(int iter, ulong p1, ulong lb, ulong mb, int sval, int off);
 void modtst(int off, int iter, ulong p1, ulong p2);
 void error(ulong* adr, ulong good, ulong bad);
 void ad_err1(ulong *adr1, ulong *adr2, ulong good, ulong bad);
 void ad_err2(ulong *adr, ulong bad);
 void do_tick(void);
+void rand_seed(int seed1, int seed2);
+ulong rand();
 void init(void);
 struct eregs;
 void inter(struct eregs *trap_regs);
@@ -128,6 +129,7 @@ void popup(void);
 void popdown(void);
 void popclear(void);
 void get_config(void);
+void get_menu(void);
 void get_printmode(void);
 void addr_tst1(void);
 void addr_tst2(void);
@@ -170,52 +172,32 @@ struct pair {
 
 static inline void cache_off(void)
 {
-    asm(
-		"pusha\n\t"
+        asm(
+		"push %eax\n\t"
 		"movl %cr0,%eax\n\t"
-    "orl  $0x40000000,%eax\n\t"  /* Set CD   */
-    "andl $0x6FFFFFFF,%eax\n\t"  /* Clear NW */
-    "movl %eax,%cr0\n\t"				 /* Set CR0  */
-		"wbinvd\n\t" 								 /* Invalidate Cache */
-		"movl $0x01, %eax\n\t"			 /* Put 1 in eax */
-		"cpuid\n\t"									 /* cpuid */
-		"andl $0x01000, %edx\n\t"     /* MTRR available ? */
-		"jz    CB1\n\t"                /* No, go to end */
-		"movl $0x02FF, %ecx\n\t"		 /* Yes, disable it */
-		"rdmsr\n\t"
-		"andl $0xFFFFF3FF,%eax\n\t"
-		"wrmsr\n\t"
+                "orl $0x40000000,%eax\n\t"  /* Set CD */
+                "movl %eax,%cr0\n\t"
 		"wbinvd\n\t"
-		"CB1:\n\t"
-		"popa\n\t");
+		"pop  %eax\n\t");
 }
 static inline void cache_on(void)
 {
-    asm(
-		"pusha\n\t"
+        asm(
+		"push %eax\n\t"
 		"movl %cr0,%eax\n\t"
-    "andl $0x9fffffff,%eax\n\t"  /* Clear CD and NW		*/ 
-    "movl %eax,%cr0\n\t"
-		"movl $0x01, %eax\n\t"			 /* Put 1 in eax 			*/
-		"cpuid\n\t"									 /* cpuid							*/
-		"andl $0x01000, %edx\n\t"    /* MTRR available ?	*/
-		"jz    CB2\n\t"              /* No, go to end 		*/
-		"movl $0x02FF, %ecx\n\t"		 /* Yes, enable it 		*/
-		"rdmsr\n\t"
-		"orl $0x0C00,%eax\n\t"
-		"wrmsr\n\t"   
-		"CB2:\n\t"
-		"popa\n\t");
+                "andl $0x9fffffff,%eax\n\t" /* Clear CD and NW */ 
+                "movl %eax,%cr0\n\t"
+		"pop  %eax\n\t");
 }
 
 static inline void reboot(void)
 {
         asm(
 		"movl %cr0,%eax\n\t"
-    "andl  $0x00000011,%eax\n\t"
-    "orl   $0x60000000,%eax\n\t"
-    "movl  %eax,%cr0\n\t"
-    "movl  %eax,%cr3\n\t"
+       		"andl  $0x00000011,%eax\n\t"
+       		"orl   $0x60000000,%eax\n\t"
+       		"movl  %eax,%cr0\n\t"
+       		"movl  %eax,%cr3\n\t"
 		"movl  %cr0,%ebx\n\t"
 		"andl  $0x60000000,%ebx\n\t"
 		"jz    f\n\t"
@@ -276,8 +258,6 @@ struct vars {
 	int ecount;
 	int ecc_ecount;
 	int msegs;
-	int cache_flag;
-	int xtst_flag;
 	int testsel;
 	int scroll_start;
 	int rdtsc;
@@ -286,7 +266,7 @@ struct vars {
 	int total_ticks;
 	int pptr;
 	int tptr;
-	int beepmode;
+	int beepmode;	
 	struct pmap pmap[MAX_MEM_SEGMENTS];
 	struct mmap map[MAX_MEM_SEGMENTS];
 	ulong plim_lower;
@@ -296,7 +276,7 @@ struct vars {
 	ulong startl;
 	ulong snaph;
 	ulong snapl;
-	ulong extclock;
+	ulong extclock;	
 	int printmode;
 	int numpatn;
 	struct pair patn [BADRAM_MAXPATNS];

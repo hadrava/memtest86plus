@@ -329,6 +329,20 @@ have_cpuid:
 
 	movl	$1, %eax		# Use the CPUID instruction to get CPU type
 	cpuid
+
+	#
+	# CDH start
+	# Check FPU, initialize if present
+	#
+	testl $1, %edx # FPU available?
+	jz no_fpu
+	finit
+	
+	no_fpu:
+	#
+	# CDH end
+	#
+
 	movb	%al, %cl		# save reg for future use
 	andb	$0x0f, %ah		# mask processor family
 	movb	%ah, X86(%esi)

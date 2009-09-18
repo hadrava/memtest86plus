@@ -1,8 +1,14 @@
-/* test.c - MemTest-86  Version 3.0
+
+/* test.c - MemTest-86  Version 3.2
  *
  * Released under version 2 of the Gnu Public License.
  * By Chris Brady, cbrady@sgi.com
+ * ----------------------------------------------------
+ * MemTest86+ V2.00 Specific code (GPL V2.0)
+ * By Samuel DEMEULEMEESTER, sdemeule@memtest.org
+ * http://www.x86-secret.com - http://www.memtest.org
  */
+ 
 #include "test.h"
 #include "config.h"
 #include <sys/io.h>
@@ -111,8 +117,8 @@ void addr_tst1()
 						mask = mask << 1;
 					} while(mask);
 				}
-				if (p + bank > p) {
-					p += bank;
+				if (p + bank/4 > p) {
+					p += bank/4;
 				} else {
 					p = end;
 				}
@@ -240,6 +246,162 @@ void addr_tst2()
 			do_tick();
 			BAILR
 		} while (!done);
+	}
+}
+
+/*
+ * Test all of memory using a "half moving inversions" algorithm using random
+ * numbers and their complment as the data pattern. Since we are not able to
+ * produce random numbers in reverse order testing is only done in the forward
+ * direction.
+ */
+void movinvr()
+{
+	int i, j, done, seed1, seed2;
+	volatile ulong *pe;
+	volatile ulong *start,*end;
+	ulong num;
+
+	/* Initialize memory with initial sequence of random numbers.  */
+	if (v->rdtsc) {
+		asm __volatile__ ("rdtsc":"=a" (seed1),"=d" (seed2));
+	} else {
+		seed1 = 521288629 + v->pass;
+		seed2 = 362436069 - v->pass;
+	}
+
+	/* Display the current seed */
+        hprint(LINE_PAT, COL_PAT, seed1);
+	rand_seed(seed1, seed2);
+	for (j=0; j<segs; j++) {
+		start = v->map[j].start;
+		end = v->map[j].end;
+		pe = start;
+		p = start;
+		done = 0;
+		do {
+			/* Check for overflow */
+			if (pe + SPINSZ > pe) {
+				pe += SPINSZ;
+			} else {
+				pe = end;
+			}
+			if (pe >= end) {
+				pe = end;
+				done++;
+			}
+			if (p == pe ) {
+				break;
+			}
+/* Original C code replaced with hand tuned assembly code */
+/*
+			for (; p < pe; p++) {
+				*p = rand();
+			}
+ */
+
+                        asm __volatile__ (
+                                "jmp L200\n\t"
+                                ".p2align 4,,7\n\t"
+                                "L200:\n\t"
+                                "call rand\n\t"
+				"movl %%eax,(%%edi)\n\t"
+                                "addl $4,%%edi\n\t"
+                                "cmpl %%ebx,%%edi\n\t"
+                                "jb L200\n\t"
+                                : "=D" (p)
+                                : "D" (p), "b" (pe)
+				: "eax"
+                        );
+
+			do_tick();
+			BAILR
+		} while (!done);
+	}
+
+	/* Do moving inversions test. Check for initial pattern and then
+	 * write the complement for each memory location. Test from bottom
+	 * up and then from the top down.  */
+	for (i=0; i<2; i++) {
+		rand_seed(seed1, seed2);
+		for (j=0; j<segs; j++) {
+			start = v->map[j].start;
+			end = v->map[j].end;
+			pe = start;
+			p = start;
+			done = 0;
+			do {
+				/* Check for overflow */
+				if (pe + SPINSZ > pe) {
+					pe += SPINSZ;
+				} else {
+					pe = end;
+				}
+				if (pe >= end) {
+					pe = end;
+					done++;
+				}
+				if (p == pe ) {
+					break;
+				}
+/* Original C code replaced with hand tuned assembly code */
+/*
+				for (; p < pe; p++) {
+					num = rand();
+					if (i) {
+						num = ~num;
+					}
+					if ((bad=*p) != num) {
+						error((ulong*)p, num, bad);
+					}
+					*p = ~num;
+				}
+*/
+				if (i) {
+					num = 0xffffffff;
+				} else {
+					num = 0;
+				}
+				asm __volatile__ (
+					"jmp L26\n\t" \
+
+					".p2align 4,,7\n\t" \
+					"L26:\n\t" \
+					"call rand\n\t"
+					"xorl %%ebx,%%eax\n\t" \
+					"movl (%%edi),%%ecx\n\t" \
+					"cmpl %%eax,%%ecx\n\t" \
+					"jne L23\n\t" \
+					"L25:\n\t" \
+					"movl $0xffffffff,%%edx\n\t" \
+					"xorl %%edx,%%eax\n\t" \
+					"movl %%eax,(%%edi)\n\t" \
+					"addl $4,%%edi\n\t" \
+					"cmpl %%esi,%%edi\n\t" \
+					"jb L26\n\t" \
+					"jmp L24\n" \
+
+					"L23:\n\t" \
+					"pushl %%esi\n\t" \
+					"pushl %%ecx\n\t" \
+					"pushl %%eax\n\t" \
+					"pushl %%edi\n\t" \
+					"call error\n\t" \
+					"popl %%edi\n\t" \
+					"popl %%eax\n\t" \
+					"popl %%ecx\n\t" \
+					"popl %%esi\n\t" \
+					"jmp L25\n" \
+
+					"L24:\n\t" \
+					: "=D" (p)
+					: "D" (p), "S" (pe), "b" (num)
+					: "eax", "ecx", "edx"
+				);
+				do_tick();
+				BAILR
+			} while (!done);
+		}
 	}
 }
 
@@ -438,10 +600,10 @@ void movinv1(int iter, ulong p1, ulong p2)
 
 void movinv32(int iter, ulong p1, ulong lb, ulong hb, int sval, int off)
 {
-	int i, j, k=0, n = 0, done;
+	int i, j, k=0, done;
 	volatile ulong *pe;
 	volatile ulong *start, *end;
-	ulong pat, p3;
+	ulong pat = 0, p3;
 
 	p3 = sval << 31;
 
@@ -616,13 +778,12 @@ void movinv32(int iter, ulong p1, ulong lb, ulong hb, int sval, int off)
 		/* Since we already adjusted k and the pattern this
 		 * code backs both up one step
 		 */
-		if (--k < 0) {
-			k = 31;
-		}
-		for (pat = lb, n = 0; n < k; n++) {
-			pat = pat << 1;
-			pat |= sval;
-		}
+    pat = lb;
+    if ( 0 != (k = (k-1) & 31) ) {
+           pat = (pat << k);
+           if ( sval )
+                 pat |= ((sval << k) - 1);
+    }
 		k++;
 		for (j=segs-1; j>=0; j--) {
 			start = v->map[j].start;
@@ -731,9 +892,9 @@ void modtst(int offset, int iter, ulong p1, ulong p2)
 	volatile ulong *start, *end;
 
 	/* Display the current pattern */
-        hprint(LINE_PAT, COL_PAT-2, p1);
+  hprint(LINE_PAT, COL_PAT-2, p1);
 	cprint(LINE_PAT, COL_PAT+6, "-");
-        dprint(LINE_PAT, COL_PAT+7, offset, 2, 1);
+  dprint(LINE_PAT, COL_PAT+7, offset, 2, 1);
 
 	/* Write every nth location with pattern */
 	for (j=0; j<segs; j++) {
@@ -901,7 +1062,10 @@ void modtst(int offset, int iter, ulong p1, ulong p2)
 			BAILR
 		} while (!done);
 	}
+        cprint(LINE_PAT, COL_PAT, "          ");
 }
+
+
 
 /*
  * Test memory using block moves 
@@ -1120,12 +1284,16 @@ void block_move(int iter)
 /*
  * Test memory for bit fade.
  */
+#define STIME 5400
 void bit_fade()
 {
 	int j;
 	volatile ulong *pe;
 	volatile ulong bad;
 	volatile ulong *start,*end;
+
+	test_ticks += (STIME * 2);
+	v->pass_ticks += (STIME * 2);
 
 	/* Do -1 and 0 patterns */
 	p1 = 0;
@@ -1147,7 +1315,7 @@ void bit_fade()
 			BAILR
 		}
 		/* Snooze for 90 minutes */
-		sleep (5400, 0);
+		sleep (STIME, 0);
 
 		/* Make sure that nothing changed while sleeping */
 		for (j=0; j<segs; j++) {
@@ -1184,7 +1352,8 @@ void error(ulong *adr, ulong good, ulong bad)
 #ifdef USB_WAR
 	/* Skip any errrors that appear to be due to the BIOS using location
 	 * 0x4e0 for USB keyboard support.  This often happens with Intel
-         * 810, 815 and 820 chipsets.  It is possible that we will skip
+   dir
+   * 810, 815 and 820 chipsets.  It is possible that we will skip
 	 * a real error but the odds are very low.
 	 */
 	if ((ulong)adr == 0x4e0 || (ulong)adr == 0x410) {
@@ -1201,7 +1370,7 @@ void error(ulong *adr, ulong good, ulong bad)
 		/* Don't display duplicate errors */
 		if ((ulong)adr == (ulong)v->eadr && xor == v->exor) {
 			print_err_counts();
-			dprint(v->msg_line, 62, ++ecount, 5, 0);
+			dprint(v->msg_line, 66, ++ecount, 5, 0);
 			return;
 		}
 		print_err(adr, good, bad, xor);
@@ -1272,11 +1441,9 @@ void ad_err2(ulong *adr, ulong bad)
 }
 void print_hdr(void)
 {
-	static int header = -1;
-	if (header == 1) {
+	if ((v->ecount)>1) {
 		return;
 	}
-	header = 1;
 	cprint(LINE_HEADER, 0,  "Tst  Pass   Failing Address          Good       Bad     Err-Bits  Count Chan");
 	cprint(LINE_HEADER+1, 0,"---  ----  -----------------------  --------  --------  --------  ----- ----");
 }
@@ -1295,8 +1462,22 @@ static void update_err_counts(void)
 
 static void print_err_counts(void)
 {
+	int i;
+	char *pp;
+	
 	dprint(LINE_INFO, COL_ERR, v->ecount, 6, 0);
 	dprint(LINE_INFO, COL_ECC_ERR, v->ecc_ecount, 6, 0);
+
+	/* Paint the error messages on the screen red to provide a vivid */
+	/* indicator that an error has occured */ 
+	if (v->msg_line < 24) {
+		for(i=0, pp=(char *)((SCREEN_ADR+v->msg_line*160+1));
+				 i<76; i++, pp+=2) {
+			*pp = 0x47;
+		}
+	}
+	
+	
 }
 
 static void common_err(ulong page, ulong offset)
@@ -1304,13 +1485,11 @@ static void common_err(ulong page, ulong offset)
 	ulong mb;
 
 	/* Check for keyboard input */
+	print_hdr();
 	check_input();
-
+	scroll();
 	print_err_counts();
 
-	print_hdr();
-
-	scroll();
 	mb = page >> 8;
 	dprint(v->msg_line, 0, v->test, 3, 0);
 	dprint(v->msg_line, 4, v->pass, 5, 0);
@@ -1428,8 +1607,10 @@ void do_tick(void)
 	ulong h, l, t;
 
 	/* FIXME only print serial error messages from the tick handler */
+	if (v->ecount) {
 	print_err_counts();
-	
+	}
+
 	nticks++;
 	v->total_ticks++;
 

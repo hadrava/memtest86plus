@@ -3,7 +3,7 @@
  * Released under version 2 of the Gnu Public License.
  * By Chris Brady, cbrady@sgi.com
  * ----------------------------------------------------
- * MemTest86+ V1.30 Specific code (GPL V2.0)
+ * MemTest86+ V1.40 Specific code (GPL V2.0)
  * By Samuel DEMEULEMEESTER, sdemeule@memtest.org
  * http://www.x86-secret.com - http://www.memtest.org
  */
@@ -52,7 +52,7 @@ static void display_init(void)
  	for(i=0, pp=(char *)(SCREEN_ADR+1); i<TITLE_WIDTH; i++, pp+=2) {
   	*pp = 0x20;
  	}
- 	cprint(0, 0, "      Memtest86  v1.30      ");
+ 	cprint(0, 0, "      Memtest86  v1.40      ");
 
  	for(i=0, pp=(char *)(SCREEN_ADR+1); i<2; i++, pp+=30) {
 	*pp = 0xA4;
@@ -78,7 +78,7 @@ void init(void)
 
 	/* Turn on cache */
 	set_cache(1);
-
+	
 	/* Setup the display */
 	display_init();
 
@@ -702,6 +702,7 @@ void cpu_type(void)
                                 break;
 			case 3:
 			case 4:
+			case 5:
                                 if (l2_cache == 256) {
                                 cprint(LINE_CPU, 0, "Celeron (0.09)");
                                 off = 14;	
@@ -896,7 +897,8 @@ static void cacheable(void)
 
 /* #define TICKS 5 * 11832 (count = 6376)*/
 /* #define TICKS (65536 - 12752) */
-#define TICKS (65536 - 8271)
+/* #define TICKS (65536 - 8271) */
+#define TICKS 59659
 
 /* Returns CPU clock in khz */
 static int cpuspeed(void)
@@ -927,7 +929,7 @@ static int cpuspeed(void)
 	if (loops < 4 || end_low < 50000) {
 		return(-1);
 	}
-	v->clks_msec = end_low/48;
+	v->clks_msec = end_low/50;
 	return(v->clks_msec);
 }
 

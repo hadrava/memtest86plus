@@ -1,30 +1,27 @@
-/* main.c - MemTest-86  Version 3.0
+/* main.c - MemTest-86  Version 3.2
  *
  * Released under version 2 of the Gnu Public License.
- * By Chris Brady, cbrady@sgi.com
+ * By Chris Brady
  */
+
 #include "test.h"
 #include "defs.h"
 #undef TEST_TIMES
+#define DEFTESTS 9
 
 extern void bzero();
-extern int fast_mode;
 
 const struct tseq tseq[] = {
 	{0, 5, 3, 0, 0,    "[Address test, walking ones, no cache]"},
-	{1, 0, 3, 14, 0,   "[Moving inv, ones & zeros, cached]    "},
-	{0, 6, 3, 2, 0,    "[Address test, own address, no cache] "},
-	{1, 1, 2, 80, 0,   "[Moving inv, 8 bit pattern, cached]   "},
-	{1, 2, 2, 320, 0,  "[Moving inv, 32 bit pattern, cached]  "},
-	{1, 7, 64, 66, 0,  "[Block move, 64 moves, cached]        "},
-	{1, 3, 4, 240, 0,  "[Modulo 20, ones & zeros, cached]     "},
-	{0, 0, 2, 10, 0,   "[Moving inv, ones & zeros, no cache]  "},
-
-	{1, 7, 512, 514, 0,"[Block move, 512 moves, cached]       "},
-	{0, 1, 2, 80, 0,   "[Moving inv, 8 bit pattern, no cache] "},
-	{1, 4, 2, 1280, 0, "[Modulo 20, 8 bit pattern , cached]   "},
-	{0, 2, 2, 320, 0,  "[Moving inv, 32 bit pattern, no cache]"},
-	{1, 8, 1, 1, 0,    "[Bit fade test, 90 min, 2 patterns]   "},
+	{1, 6, 3, 2, 0,    "[Address test, own address]           "},
+	{1, 0, 3, 14, 0,   "[Moving inversions, ones & zeros]     "},
+	{1, 1, 2, 80, 0,   "[Moving inversions, 8 bit pattern]    "},
+	{1, 10, 60, 300, 0,"[Moving inversions, random pattern]   "},
+	{1, 7, 64, 66, 0,  "[Block move, 64 moves]                "},
+	{1, 2, 2, 320, 0,  "[Moving inversions, 32 bit pattern]   "},
+	{1, 9, 40, 120, 0, "[Random number sequence]              "},
+	{1, 3, 4, 240, 0,  "[Modulo 20, ones & zeros]             "},
+	{1, 8, 1, 2, 0,    "[Bit fade test, 90 min, 2 patterns]   "},
 	{0, 0, 0, 0, 0, NULL}
 };
 
@@ -208,32 +205,7 @@ void do_test(void)
 #endif
 	/* Now setup the test parameters based on the current test number */
 	/* Figure out the next test to run */
-	if (v->testsel < 0) {
-		switch(v->xtst_flag) {
-		case 0: /* Default tests */
-			if (v->test > DEFTESTS) {
-				goto skip_test;
-			}
-			break;
-		case 1: /* Extended tests */
-			if ((v->test <= DEFTESTS) || (v->test > DEFTESTS2)) {
-				goto skip_test;
-			}
-			break;
-		case 2: /* All tests */
-			if (v->test > DEFTESTS2) {
-				goto skip_test;
-			}
-			break;
-		}
-			
-		/* May skip this test if the cache settings have been */
-		/* overridden */
-		if ((v->cache_flag == 1 && tseq[v->test].cache == 0) ||
-			(v->cache_flag == 2 && tseq[v->test].cache == 1)) {
-			goto skip_test;
-		}
-	} else {
+	if (v->testsel >= 0) {
 		v->test = v->testsel;
 	}
 	dprint(LINE_TST, COL_MID+6, v->test, 2, 1);
@@ -265,6 +237,7 @@ void do_test(void)
 		p2 = p1;
 		p1 = ~p2;
 		movinv1(tseq[v->test].iter,p1,p2);
+		BAILOUT;
 		break;
 		
 	case 1: /* Moving inversions, 8 bit wide walking ones and zeros. */
@@ -323,23 +296,41 @@ void do_test(void)
 				modtst(i, tseq[v->test].iter, p1, p2);
 				BAILOUT
 			}
-			BAILOUT
 		}
 		break;
 	case 5: /* Address test, walking ones */
 		addr_tst1();
+		BAILOUT;
 		break;
 
 	case 6: /* Address test, own address */
 		addr_tst2();
+		BAILOUT;
 		break;
 
 	case 7: /* Block move test */
 		block_move(tseq[v->test].iter);
+		BAILOUT;
 		break;
-	
 	case 8: /* Bit fade test */
-		if (window == 0 ) { bit_fade(); }
+		if (window == 0 ) {
+			bit_fade();
+		}
+		BAILOUT;
+		break;
+	case 9: /* Random Data Sequence */
+		for (i=0; i < tseq[v->test].iter; i++) {
+			movinvr();
+			BAILOUT;
+		}
+		break;
+	case 10: /* Random Data */
+		for (i=0; i < tseq[v->test].iter; i++) {
+			p1 = rand();
+			p2 = ~p1;
+			movinv1(2,p1,p2);
+			BAILOUT;
+		}
 		break;
 	}
  skip_window:
@@ -394,7 +385,7 @@ void do_test(void)
 		window = 0;
 		cprint(LINE_PAT, COL_PAT-3, "   ");
 		/* If this was the last test then we finished a pass */
-		if (tseq[v->test].msg == NULL || v->testsel >= 0) {
+		if (v->test >= DEFTESTS || v->testsel >= 0) {
 			v->pass++;
 			dprint(LINE_INFO, COL_PASS, v->pass, 5, 0);
 			v->test = 0;
@@ -414,12 +405,13 @@ void restart()
 	int i;
 	volatile char *pp;
 
-	/* clear all of the variables */
+	/* clear variables */
 	firsttime = 0;
-	fast_mode = 0;
-	for (i=0, pp=(char *)v; i<sizeof(struct vars); i++, pp++) {
-		*pp = 0;
-	}
+	v->test = 0;
+	v->pass = 0;
+	v->msg_line = 0;
+	v->ecount = 0;
+	v->ecc_ecount = 0;
 
         /* Clear the screen */
         for(i=0, pp=(char *)(SCREEN_ADR+0); i<80*24; i++, pp+=2) {
@@ -448,22 +440,11 @@ void find_ticks(void)
 	}
 	compute_segments(window);
 	window = 0;
-	for (v->pass_ticks=0, i=0; tseq[i].msg != NULL; i++) {
+	for (v->pass_ticks=0, i=0; i<DEFTESTS != NULL; i++) {
 
 		/* Test to see if this test is selected for execution */
 		if (v->testsel >= 0) {
 			if (i != v->testsel) {
-				continue;
-			}
-		} else {
-			if (v->xtst_flag == 0 && i > DEFTESTS) {
-				break;
-			}
-			if (v->xtst_flag == 1 && i <= DEFTESTS) {
-				continue;
-			}
-			if ((v->cache_flag == 1 && tseq[i].cache == 0) ||
-				(v->cache_flag == 2 && tseq[i].cache == 1)) {
 				continue;
 			}
                 }
@@ -566,5 +547,3 @@ static void compute_segments(int win)
 		}
 	}
 }
-
-

@@ -1,7 +1,7 @@
-/* memsize.c - MemTest-86  Version 3.0
+/* memsize.c - MemTest-86  Version 3.2
  *
  * Released under version 2 of the Gnu Public License.
- * By Chris Brady, cbrady@sgi.com
+ * By Chris Brady
  */
 
 #include "test.h"
@@ -20,7 +20,6 @@ extern ulong p1, p2;
 extern volatile ulong *p;
 
 static void sort_pmap(void);
-static void sanitize_pmap(void);
 static int check_ram(void);
 static void memsize_bios(int res);
 static void memsize_820(int res);
@@ -71,7 +70,6 @@ void mem_size(void)
 	}
 	/* Guarantee that pmap entries are in ascending order */
 	sort_pmap();
-	sanitize_pmap();
 	v->plim_lower = 0;
 	v->plim_upper = v->pmap[v->msegs-1].end;
 
@@ -113,62 +111,6 @@ static void sort_pmap(void)
 		}
 	}
 }
-
-static void remove_pmap_region(unsigned long res_start, unsigned long res_end)
-{
-	/* Ensure a range of addresses is absent from the pmap */
-	int i;
-	for(i = 0; i < v->msegs; i++) {
-		unsigned long start, end;
-		start = v->pmap[i].start;
-		end = v->pmap[i].end;
-		if ((start < res_start) && (end > res_start)) {
-			/* If the tail of the range overlaps the region, truncate it */
-			v->pmap[i].end = res_start;
-			if ((end > res_end) && (v->msegs < MAX_MEM_SEGMENTS)) {
-				/* If the tail extends past the end of the region
-				 * insert a new pmap entry for the tail.
-				 */
-				memmove(&v->pmap[i+2], &v->pmap[i + 1],
-					((v->msegs - 1) - i) *sizeof(v->pmap[0]));
-				v->msegs += 1;
-				i += 1;
-				start = res_start;
-				v->pmap[i].start = start;
-				v->pmap[i].end = end;
-			}
-			else {
-				end = res_start;
-			}
-		}
-		if ((start >= res_start) && (end <= res_end)) {
-			/* If the range is completely contained in the region remove it */
-			memmove(&v->pmap[i], &v->pmap[i+1],
-				((v->msegs - 1) - i) * sizeof(v->pmap[0]));
-			v->msegs -= 1;
-			i -= 1;
-		}
-		else if ((start < res_end) && (end > res_end)) {
-			/* If the start is in the middle of the region increment it */
-			start = res_end;
-			v->pmap[i].start = start;
-		}
-	}
-}
-
-static void sanitize_pmap(void)
-{
-	/* Remove any questionable addresses from the memory map */
-	/* Unless we really trust the BIOS don't test 640-1M */
-	if (firmware != FIRMWARE_LINUXBIOS) {
-		remove_pmap_region(RES_START >> 12 , (RES_END + 4095) >> 12);
-	}
-	/* Never test where our video buffer lives */
-	remove_pmap_region(SCREEN_ADR >> 12, (SCREEN_END_ADR  + 4095) >> 12);
-}
-
-
-
 static void memsize_linuxbios(void)
 {
 	int i, n;
@@ -213,6 +155,16 @@ static void memsize_820(int res)
 			start = nm[i].addr;
 			end = start + nm[i].size;
 
+			/* Don't ever use memory between 640 and 1024k */
+			if (start > RES_START && start < RES_END) {
+				if (end < RES_END) {
+					continue;
+				}
+				start = RES_END;
+			}
+			if (end > RES_START && end < RES_END) {
+				end = RES_START;
+			}
 			v->pmap[n].start = (start + 4095) >> 12;
 			v->pmap[n].end = end >> 12;
 			v->test_pages += v->pmap[n].end - v->pmap[n].start;
