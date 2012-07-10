@@ -15,7 +15,7 @@ CC=gcc
 CFLAGS= -Wall -march=i486 -m32 -O1 -fomit-frame-pointer -fno-builtin \
 	-ffreestanding -fPIC $(SMP_FL) -fno-stack-protector 
 	
-OBJS= head.o reloc.o main.o test.o init.o lib.o patn.o screen_buffer.o \
+OBJS= head.o exit.o reloc.o main.o test.o init.o lib.o patn.o screen_buffer.o \
       config.o cpuid.o linuxbios.o pci.o memsize.o spd.o error.o dmi.o controller.o \
       smp.o vmem.o random.o
       
@@ -46,6 +46,9 @@ setup.s: setup.S config.h defs.h
 	$(CC) -E -traditional $< -o $@
 
 pxe.s: pxe.S config.h defs.h
+	$(CC) -E -traditional $< -o $@
+
+exit.s: exit.S config.h defs.h
 	$(CC) -E -traditional $< -o $@
 
 memtest.bin: memtest_shared.bin bootsect.o setup.o memtest.bin.lds

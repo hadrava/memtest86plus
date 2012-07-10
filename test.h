@@ -173,6 +173,7 @@ int get_key(void);
 int ascii_to_keycode(int in);
 void wait_keyup(void);
 void print_hdr(void);
+void run_at(unsigned long addr, int cpu);
 void restart(void);
 void parity_err(ulong edi, ulong esi);
 void start_config(void);
@@ -190,6 +191,7 @@ void bit_fade_fill(unsigned long n, int cpu);
 void bit_fade_chk(unsigned long n, int cpu);
 void find_ticks_for_pass(void);
 void beep(unsigned int frequency);
+void exit(int status);
 
 #define PRINTMODE_SUMMARY   0
 #define PRINTMODE_ADDRESSES 1
@@ -302,6 +304,7 @@ struct vars {
 	int fail_safe;
 	int each_sec;
 	int beepmode;
+	int exit;
 };
 
 #define FIRMWARE_UNKNOWN   0
@@ -313,6 +316,11 @@ extern unsigned char _start[], _end[], startup_32[];
 extern unsigned char _size, _pages;
 
 extern struct mem_info_t mem_info;
+
+/* Exit codes */
+#define EXIT_SUCCESS 0
+#define EXIT_FAILURE 1
+#define EXIT_INCOMPLETE 2
 
 #endif /* __ASSEMBLY__ */
 #endif /* _TEST_H_ */

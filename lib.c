@@ -28,6 +28,9 @@ int serial_baud_rate = SERIAL_BAUD_RATE;
 unsigned char serial_parity = 0;
 unsigned char serial_bits = 8;
 
+extern volatile int mstr_cpu;
+extern volatile int bail;
+
 struct ascii_map_str {
         int ascii;
         int keycode;
@@ -632,7 +635,8 @@ void check_input(void)
 		case 1:	
 			/* "ESC" key was pressed, bail out.  */
 			cprint(LINE_RANGE, COL_MID+23, "Halting... ");
-			reboot();
+			v->exit++;
+			bail++;
 			break;
 		case 46:
 			/* c - Configure */

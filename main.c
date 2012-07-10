@@ -203,7 +203,7 @@ void btrace(int me, int line, char *msg, int wait, long v1, long v2)
 }
 
 /* Relocate the test to a new address. Be careful to not overlap! */
-static void run_at(unsigned long addr, int cpu)
+void run_at(unsigned long addr, int cpu)
 {
 	ulong *ja = (ulong *)(addr + startup_32 - _start);
 
@@ -526,6 +526,25 @@ void test_start(void)
 	btrace(my_cpu_num, __LINE__, "Start Done", 1, 0, 0);
 	start_seq = 2;
 
+	/* Exit if testing has finished */
+	if (v->exit) {
+		paging_off();
+		set_cache(1);
+		barrier();
+		if (my_cpu_num == 0) {
+			if (v->ecount) {
+				exit(EXIT_FAILURE);
+			} else if (v->pass) {
+				exit(EXIT_SUCCESS);
+			} else {
+				exit(EXIT_INCOMPLETE);
+			}
+		} else {
+			/* Halt APs */
+			__asm__ __volatile__ ( "cli ; hlt" );
+		}
+	}
+
 	/* Loop through all tests */
 	while (1) {
 	    /* If the restart flag is set all initial params */
@@ -549,6 +568,11 @@ void test_start(void)
 		cprint(8, my_cpu_num+7, "W");
 		btrace(my_cpu_num, __LINE__, "Sched_Barr", 1,window,win_next);
 		barrier();
+
+		/* Exit if testing has finished */
+		if (v->exit) {
+			run_at(LOW_TEST_ADR, my_cpu_num);
+		}
 
 		/* Don't go over the 8TB PAE limit */
 		if (win_next > MAX_MEM) {
@@ -759,8 +783,8 @@ void test_start(void)
 			if (v->ecount == 0) 
 				{
 			    /* If onepass is enabled and we did not get any errors
-			     * reboot to exit the test */
-			    if (onepass) {	reboot();   }
+			     * exit the test */
+			    if (onepass) { v->exit++; }
 			    if (!btflag) cprint(LINE_MSG, COL_MSG-8, "** Pass complete, no errors, press Esc to exit **");
 					if(BEEP_END_NO_ERROR) 
 						{
