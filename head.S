@@ -35,6 +35,12 @@ startup_32:
 0:	popl	%ebx
 	addl	$_GLOBAL_OFFSET_TABLE_+[.-0b], %ebx
 
+	/* Store the exit stack address */
+	cmpl	$0, exit_esp@GOTOFF(%ebx)
+	jnz	0f
+	movl	%esp, exit_esp@GOTOFF(%ebx)
+0:
+
 	/* Pick the appropriate boot_stack address */
 	leal	boot_stack_top@GOTOFF(%ebx), %esp
 

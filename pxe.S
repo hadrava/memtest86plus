@@ -23,6 +23,18 @@ _main:
 	ljmp	$BOOTSEG, $pxe_start
 
 pxe_start:
+	/* Preserve registers, %ss:%esp, and magic marker on PXE stack */
+	pushfl
+	pushal
+	pushw	%gs
+	pushw	%fs
+	pushw	%es
+	pushw	%ds
+	pushl	%esp
+	pushw	%ss
+	pushw	%ax	/* Padding */
+	pushl	$EXIT_MAGIC
+
 	/* Store PXENV+ entry point */
 	movl	%es:PXENV_ENTRY(%bx), %eax
 	movl	%eax, %cs:pxenv_vector

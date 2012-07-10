@@ -12,6 +12,15 @@ exit:
 	/* Exit status to %eax */
 	movl	4(%esp), %eax
 
+	/* Calculate real-mode exit %ss:esp in %dx:%edi */
+	xorw	%dx, %dx
+	xorl	%edi, %edi
+	movl	exit_esp, %ebp
+	cmpl	$EXIT_MAGIC, 0(%ebp)
+	jne	1f
+	movl	8(%ebp), %edi
+	movw	6(%ebp), %dx
+1:
 	/* Load IDT and GDT and switch to 16-bit code segment */
 	cli
 	lidt	idt_descr
@@ -45,6 +54,24 @@ exit:
 	/* Reenable interrupts */
 	sti
 
+	/* If we have a real-mode exit stack, restore registers
+	 * (except exit status) and return
+	 */
+	testl	%edi, %edi
+	jz	reset
+	movw	%dx, %ss
+	movl	%edi, %esp
+	movw	%sp, %bp
+	movl	%eax, 36(%bp)
+	popw	%ds
+	popw	%es
+	popw	%fs
+	popw	%gs
+	popal
+	popfl
+	lret
+
+reset:
 	/* Perform a warm reset */
 	movw	$0x1234, %ax
 	movw	%ax, 0x472
@@ -79,3 +106,7 @@ gdt_descr:
 idt_descr:
 	.word	0xffff
 	.long	0
+
+.globl exit_esp
+exit_esp:
+	.long 0

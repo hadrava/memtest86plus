@@ -24,3 +24,6 @@
 #define KERNEL_DS	0x18			/* 32 bit segment adrs for data */
 #define REAL_CS		0x20			/* 16 bit segment adrs for code */
 #define REAL_DS		0x28			/* 16 bit segment adrs for data */
+
+/* Magic marker to determine if exit stack is intact */
+#define EXIT_MAGIC	( 'E' + ( 'X' << 8 ) + ( 'I' << 16 ) + ( 'T' << 24 ) )
