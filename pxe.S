@@ -11,6 +11,9 @@
 
 #define PXENV_ENTRY 0x0a
 #define PXENV_UNDI_SHUTDOWN 0x0005
+#define PXENV_FILE_CMDLINE 0x00e8
+
+#define CMDLINE_MAGIC 0xa33f
 
 .code16
 .section ".bootsect", "ax", @progbits
@@ -21,6 +24,13 @@ _pxe:
 _main:
 	/* Canonicalise addresses */
 	ljmp	$BOOTSEG, $pxe_start
+
+	/* Command line magic */
+.org 0x20
+cmdline_magic:
+	.word	0
+cmdline_offset:
+	.word	0
 
 pxe_start:
 	/* Preserve registers, %ss:%esp, and magic marker on PXE stack */
@@ -71,6 +81,19 @@ pxe_start:
 	movw	%ax, %ds
 	movw	%ax, %es
 
+	/* Check for a command line */
+	movw	$PXENV_FILE_CMDLINE, %bx
+	movw	$pxenv_file_cmdline, %di
+	lcall	*pxenv_vector
+	testw	%ax, %ax
+	jnz	no_cmdline
+	movw	pxenv_file_cmdline + 2, %ax
+	testw	%ax, %ax
+	jz	no_cmdline
+	movw	$CMDLINE_MAGIC, cmdline_magic
+	movw	$RMSIZE, cmdline_offset
+no_cmdline:
+
 	/* Shutdown NIC */
 	movw	$PXENV_UNDI_SHUTDOWN, %bx
 	movw	$pxenv_undi_shutdown, %di
@@ -84,6 +107,11 @@ pxenv_vector:
 
 pxenv_undi_shutdown:
 	.word	0		/* Status */
+
+pxenv_file_cmdline:
+	.word	0		/* Status */
+	.word	0xffff		/* 64kB max length of command line */
+	.word	RMSIZE, BOOTSEG
 
 .org 512
 _epxe:
