@@ -22,16 +22,6 @@ start:
 	outb	%al, $0x70
 
 # The system will move itself to its rightful place.
-# reload the segment registers and the stack since the 
-# APs also execute this code
-#ljmp	$INITSEG, $(reload - start + 0x200)
-reload:
-	movw	$INITSEG, %ax
-	movw	%ax, %ds
-	movw	%ax, %es
-	movw	%ax, %fs
-	movw	%ax, %ss	# reset the stack to INITSEG:0x4000-12.
-	movw	%dx, %sp
 	push	%cs
 	pop	%ds
 	lidt	idt_48 - start	# load idt with 0,0
