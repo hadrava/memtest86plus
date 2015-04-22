@@ -73,6 +73,7 @@ volatile short	cpu_mode;
 char		cpu_mask[MAX_CPUS];
 long 		bin_mask=0xffffffff;
 short		onepass;
+static short	onefail;
 volatile short	btflag = 0;
 volatile int	test;
 short	        restart_flag;
@@ -329,6 +330,11 @@ static void parse_command_line(void)
 		if (!strncmp(cp, "onepass", 7)) {
 			cp += 7;
 			onepass++;
+		}
+		/* Exit immediately on failure */
+		if (!strncmp(cp, "onefail", 7)) {
+			cp += 7;
+			onefail++;
 		}
 		/* Setup a list of tests to run */
 		if (!strncmp(cp, "tstlist=", 8)) {
@@ -781,6 +787,12 @@ void test_start(void)
 					}
 	    } //????
 	    btrace(my_cpu_num, __LINE__, "Next_CPU  ",1,cpu_sel,test);
+
+	    /* If onefail is enabled and we have seen any errors then
+	     * exit the test */
+	    if (onefail && v->ecount) {
+		    v->exit++;
+	    }
 
 	    /* If this was the last test then we finished a pass */
 	  if (pass_flag) 
